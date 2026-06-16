@@ -10,10 +10,10 @@ type KpiCardProps = {
 export function KpiCard({ label, value, positive, negative, sub, accent }: KpiCardProps) {
   const cls = positive ? 'positive' : negative ? 'negative' : ''
   const defaultAccent = positive
-    ? 'var(--color-positive)'
+    ? 'var(--positive)'
     : negative
-    ? 'var(--color-negative)'
-    : 'var(--terracotta)'
+    ? 'var(--negative)'
+    : 'var(--green)'
   return (
     <div
       className="kpi-card"

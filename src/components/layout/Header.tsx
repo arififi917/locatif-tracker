@@ -13,7 +13,8 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
   const { exportData, importData } = useAppData()
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem('theme')
-    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    if (saved) return saved === 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
 
   useEffect(() => {
@@ -38,117 +39,97 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
       if (!file) return
       const reader = new FileReader()
       reader.onload = (ev) => {
-        try {
-          const parsed = JSON.parse(ev.target?.result as string)
-          importData(parsed)
-        } catch {
-          alert('Fichier JSON invalide')
-        }
+        try { importData(JSON.parse(ev.target?.result as string)) }
+        catch { alert('Fichier JSON invalide') }
       }
       reader.readAsText(file)
     }
     input.click()
   }
 
-  const selectStyle: React.CSSProperties = {
-    padding: '5px 10px',
-    borderRadius: 'var(--radius-sm)',
+  const pill: React.CSSProperties = {
+    padding: '5px 11px',
+    borderRadius: 'var(--radius)',
     border: '1px solid var(--header-btn-border)',
     background: 'var(--header-btn-bg)',
     color: 'var(--header-text)',
-    fontSize: 11.5,
-    fontWeight: 600,
+    fontSize: 12,
+    fontWeight: 500,
     fontFamily: 'var(--font-sans)',
     cursor: 'pointer',
     outline: 'none',
-    letterSpacing: '.02em',
-  }
-
-  const actionBtnStyle: React.CSSProperties = {
-    background: 'var(--header-btn-bg)',
-    border: '1px solid var(--header-btn-border)',
-    color: 'var(--header-text)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '5px 12px',
-    fontSize: 11.5,
-    fontWeight: 600,
-    fontFamily: 'var(--font-sans)',
-    cursor: 'pointer',
+    letterSpacing: '.01em',
     display: 'flex',
     alignItems: 'center',
     gap: 5,
-    letterSpacing: '.02em',
-    transition: 'background 120ms ease',
+    transition: 'background 100ms ease, border-color 100ms ease',
   }
 
   return (
     <header style={{
       background: 'var(--header-bg)',
-      padding: '0 28px',
+      borderBottom: '1px solid var(--header-border)',
+      padding: '0 24px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      boxShadow: '0 1px 0 var(--header-border)',
     }}>
       <div style={{
-        maxWidth: 1400,
-        margin: '0 auto',
-        height: 58,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
+        maxWidth: 1400, margin: '0 auto',
+        height: 56,
+        display: 'flex', alignItems: 'center', gap: 12,
       }}>
-
-        {/* Logo / Retour */}
+        {/* Logo */}
         {onBack ? (
-          <button onClick={onBack} style={actionBtnStyle}>
+          <button onClick={onBack} style={{ ...pill, fontSize: 12 }}>
             ← Retour
           </button>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--terracotta)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
+              width: 26, height: 26,
+              borderRadius: 6,
+              background: 'var(--green)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13,
             }}>🏠</div>
+            <span style={{
+              fontWeight: 800, fontSize: 14,
+              color: 'var(--header-text)',
+              letterSpacing: '-.02em',
+            }}>Locatif</span>
           </div>
         )}
 
+        <div style={{ height: 18, width: 1, background: 'var(--header-border)', margin: '0 4px' }} />
+
         {/* Title */}
-        <h1 style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: 16,
-          fontWeight: 700,
-          fontStyle: 'italic',
+        <span style={{
+          fontSize: 13, fontWeight: 500,
           flex: 1,
-          color: 'var(--header-text)',
+          color: 'var(--header-muted)',
           letterSpacing: '-.01em',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
         }}>
           {title}
-        </h1>
+        </span>
 
-        {/* Period selector */}
+        {/* Period */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--header-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.10em' }}>Période</span>
+          <span style={{ fontSize: 10.5, color: 'var(--header-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.10em' }}>Période</span>
           <select
-            style={selectStyle}
+            style={{ ...pill, paddingRight: 8 } as React.CSSProperties}
             value={period.mode}
             onChange={(e) => handleModeChange(e.target.value as PeriodFilter['mode'])}
           >
             <option value="year">Année</option>
-            <option value="rolling_12m">12 derniers mois</option>
+            <option value="rolling_12m">12 mois glissants</option>
           </select>
           {period.mode === 'year' && (
             <select
-              style={selectStyle}
+              style={{ ...pill, paddingRight: 8 } as React.CSSProperties}
               value={period.year ?? currentYear}
               onChange={(e) => setPeriod({ mode: 'year', year: parseInt(e.target.value) })}
             >
@@ -159,21 +140,19 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={handleImport} style={actionBtnStyle}>↑ Import</button>
-          <button onClick={exportData} style={actionBtnStyle}>↓ Export</button>
+          <button onClick={handleImport} style={pill as React.CSSProperties}>↑ Import</button>
+          <button onClick={() => { const { exportData: e } = useAppData(); e() }} style={pill as React.CSSProperties} onClick={exportData}>↓ Export</button>
 
-          {/* Dark mode toggle */}
           <button
             onClick={() => setDark(!dark)}
             style={{
-              ...actionBtnStyle,
-              width: 34,
-              height: 34,
+              ...pill,
+              width: 32, height: 32,
               padding: 0,
               justifyContent: 'center',
-              fontSize: 15,
-              borderRadius: 'var(--radius-sm)',
-            }}
+              fontSize: 14,
+              borderRadius: 'var(--radius)',
+            } as React.CSSProperties}
             title={dark ? 'Mode clair' : 'Mode sombre'}
           >
             {dark ? '☀️' : '🌙'}
