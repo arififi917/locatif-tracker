@@ -1,8 +1,31 @@
 import Papa from 'papaparse'
-import { type LoanScheduleRow, type RentEvent, type ExpenseEvent, EXPENSE_CATEGORIES } from './types'
+import { type LoanScheduleRow, type RentEvent, type ExpenseEvent, type Property, EXPENSE_CATEGORIES } from './types'
 import { nanoid } from '../utils/nanoid'
 
 type RawRow = Record<string, string>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITAIRE : résolution propertyId
+//
+// La colonne propertyId accepte :
+//   - l'ID technique exact   (ex. "prop_x7k2m")
+//   - le nom du bien         (ex. "Ivry", insensible à la casse)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function resolvePropertyId(
+  raw: string,
+  properties: Property[],
+): { id: string } | { error: string } {
+  if (!raw) return { error: 'propertyId manquant' }
+  // 1. Correspondance exacte sur l'ID
+  const byId = properties.find((p) => p.id === raw)
+  if (byId) return { id: byId.id }
+  // 2. Correspondance insensible à la casse sur le nom
+  const lower = raw.toLowerCase()
+  const byName = properties.find((p) => p.name.toLowerCase() === lower)
+  if (byName) return { id: byName.id }
+  return { error: `bien "${raw}" introuvable (ni par ID ni par nom)` }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRÊTS
@@ -115,7 +138,7 @@ export function parseLoanScheduleCSV(
 //   date,propertyId,amount,label,chargesReceived,managementFees
 //
 // • date             YYYY-MM-DD                            obligatoire
-// • propertyId       id du bien                            obligatoire
+// • propertyId       ID technique OU nom du bien           obligatoire
 // • amount           décimal, peut être négatif (régul)   obligatoire
 // • label            texte libre                           optionnel (vide si absent)
 // • chargesReceived  provisions charges locataire          optionnel
@@ -133,7 +156,8 @@ export function deriveRentHC(amount: number, chargesReceived?: number, managemen
 }
 
 export function parseRentCSV(
-  csvText: string
+  csvText: string,
+  properties: Property[],
 ): { rows: RentEvent[]; errors: string[] } {
   const result = Papa.parse<RawRow>(csvText, {
     header: true,
@@ -156,7 +180,7 @@ export function parseRentCSV(
   result.data.forEach((raw, idx) => {
     const lineNum = idx + 2
     const date = raw['date']?.trim() ?? ''
-    const propertyId = raw['propertyId']?.trim() ?? ''
+    const rawPropertyId = raw['propertyId']?.trim() ?? ''
     const rawAmount = raw['amount']?.trim().replace(',', '.') ?? ''
     const amount = parseFloat(rawAmount)
 
@@ -164,12 +188,14 @@ export function parseRentCSV(
       errors.push(`Ligne ${lineNum} : date invalide (attendu YYYY-MM-DD)`)
       return
     }
-    if (!propertyId) {
-      errors.push(`Ligne ${lineNum} : propertyId manquant`)
-      return
-    }
     if (isNaN(amount)) {
       errors.push(`Ligne ${lineNum} : amount invalide`)
+      return
+    }
+
+    const resolved = resolvePropertyId(rawPropertyId, properties)
+    if ('error' in resolved) {
+      errors.push(`Ligne ${lineNum} : ${resolved.error}`)
       return
     }
 
@@ -185,7 +211,7 @@ export function parseRentCSV(
 
     rows.push({
       id: nanoid(),
-      propertyId,
+      propertyId: resolved.id,
       date,
       amount,
       label: raw['label']?.trim() || '',
@@ -206,7 +232,7 @@ export function parseRentCSV(
 //   date,propertyId,category,amount,label
 //
 // • date        YYYY-MM-DD                              obligatoire
-// • propertyId  id du bien                             obligatoire
+// • propertyId  ID technique OU nom du bien             obligatoire
 // • category    charges | taxe_fonciere | assurance |  obligatoire
 //               travaux | gestion | divers
 // • amount      décimal positif                        obligatoire
@@ -216,7 +242,8 @@ export function parseRentCSV(
 const EXPENSE_REQUIRED = ['date', 'propertyId', 'category', 'amount']
 
 export function parseExpenseCSV(
-  csvText: string
+  csvText: string,
+  properties: Property[],
 ): { rows: ExpenseEvent[]; errors: string[] } {
   const result = Papa.parse<RawRow>(csvText, {
     header: true,
@@ -240,17 +267,13 @@ export function parseExpenseCSV(
   result.data.forEach((raw, idx) => {
     const lineNum = idx + 2
     const date = raw['date']?.trim() ?? ''
-    const propertyId = raw['propertyId']?.trim() ?? ''
+    const rawPropertyId = raw['propertyId']?.trim() ?? ''
     const category = raw['category']?.trim() ?? ''
     const rawAmount = raw['amount']?.trim().replace(',', '.') ?? ''
     const amount = parseFloat(rawAmount)
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       errors.push(`Ligne ${lineNum} : date invalide (attendu YYYY-MM-DD)`)
-      return
-    }
-    if (!propertyId) {
-      errors.push(`Ligne ${lineNum} : propertyId manquant`)
       return
     }
     if (!validCategories.includes(category)) {
@@ -264,9 +287,15 @@ export function parseExpenseCSV(
       return
     }
 
+    const resolved = resolvePropertyId(rawPropertyId, properties)
+    if ('error' in resolved) {
+      errors.push(`Ligne ${lineNum} : ${resolved.error}`)
+      return
+    }
+
     rows.push({
       id: nanoid(),
-      propertyId,
+      propertyId: resolved.id,
       date,
       amount,
       label: raw['label']?.trim() || '',
