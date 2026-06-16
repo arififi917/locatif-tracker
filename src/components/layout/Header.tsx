@@ -26,7 +26,8 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
 
   function handleModeChange(mode: PeriodFilter['mode']) {
-    if (mode === 'year') setPeriod({ mode, year: currentYear })
+    if (mode === 'all') setPeriod({ mode: 'all' })
+    else if (mode === 'year') setPeriod({ mode, year: currentYear })
     else setPeriod({ mode, referenceDate: new Date().toISOString().slice(0, 10) })
   }
 
@@ -51,8 +52,8 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
     padding: '5px 11px',
     borderRadius: 'var(--radius)',
     border: '1px solid var(--header-btn-border)',
-    background: 'var(--header-btn-bg)',
-    color: 'var(--header-text)',
+    background: 'var(--color-bg)',
+    color: 'var(--color-text)',
     fontSize: 12,
     fontWeight: 500,
     fontFamily: 'var(--font-sans)',
@@ -124,6 +125,7 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
             value={period.mode}
             onChange={(e) => handleModeChange(e.target.value as PeriodFilter['mode'])}
           >
+            <option value="all">Tout</option>
             <option value="year">Année</option>
             <option value="rolling_12m">12 mois glissants</option>
           </select>
@@ -141,8 +143,7 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={handleImport} style={pill as React.CSSProperties}>↑ Import</button>
-          <button onClick={() => { const { exportData: e } = useAppData(); e() }} style={pill as React.CSSProperties} onClick={exportData}>↓ Export</button>
-
+          <button onClick={exportData} style={pill as React.CSSProperties}>↓ Export</button>
           <button
             onClick={() => setDark(!dark)}
             style={{

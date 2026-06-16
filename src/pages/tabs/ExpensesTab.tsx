@@ -124,7 +124,6 @@ export function ExpensesTab({ propertyId }: Props) {
                 <th>Date</th>
                 <th>Libellé</th>
                 <th>Catégorie</th>
-                <th>Récupérable</th>
                 <th style={{ textAlign: 'right' }}>Montant</th>
                 <th></th>
               </tr>
@@ -135,11 +134,6 @@ export function ExpensesTab({ propertyId }: Props) {
                   <td style={{ color: 'var(--color-text-muted)', fontSize: 12, fontWeight: 500 }}>{formatDate(e.date)}</td>
                   <td style={{ fontWeight: 600 }}>{e.label || '—'}</td>
                   <td><span className="badge badge-navy">{e.category}</span></td>
-                  <td>
-                    {e.isRecoverable
-                      ? <span className="badge badge-green">Oui</span>
-                      : <span className="badge badge-gray">Non</span>}
-                  </td>
                   <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(e.amount)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>

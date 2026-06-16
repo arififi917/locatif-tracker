@@ -90,7 +90,7 @@ export type AppData = {
   snapshots: PropertySnapshot[]
 }
 
-export type PeriodMode = 'year' | 'rolling_12m'
+export type PeriodMode = 'year' | 'rolling_12m' | 'all'
 
 export type PeriodFilter = {
   mode: PeriodMode
