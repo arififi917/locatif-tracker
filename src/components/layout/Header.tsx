@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { usePeriodFilter } from '../../hooks/usePeriodFilter'
 import { useAppData } from '../../hooks/useAppData'
 import { type PeriodFilter } from '../../domain/types'
@@ -10,6 +11,15 @@ type HeaderProps = {
 export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) {
   const { period, setPeriod } = usePeriodFilter()
   const { exportData, importData } = useAppData()
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }, [dark])
 
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
@@ -40,66 +50,83 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
     input.click()
   }
 
+  const selectStyle: React.CSSProperties = {
+    padding: '5px 10px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--header-btn-border)',
+    background: 'var(--header-btn-bg)',
+    color: 'var(--header-text)',
+    fontSize: 11.5,
+    fontWeight: 600,
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    outline: 'none',
+    letterSpacing: '.02em',
+  }
+
+  const actionBtnStyle: React.CSSProperties = {
+    background: 'var(--header-btn-bg)',
+    border: '1px solid var(--header-btn-border)',
+    color: 'var(--header-text)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '5px 12px',
+    fontSize: 11.5,
+    fontWeight: 600,
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    letterSpacing: '.02em',
+    transition: 'background 120ms ease',
+  }
+
   return (
     <header style={{
-      background: 'var(--color-primary)',
-      borderBottom: 'none',
-      padding: '0 24px',
+      background: 'var(--header-bg)',
+      padding: '0 28px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      boxShadow: '0 2px 12px rgba(15,23,42,.18)',
+      boxShadow: '0 1px 0 var(--header-border)',
     }}>
       <div style={{
         maxWidth: 1400,
         margin: '0 auto',
-        height: 60,
+        height: 58,
         display: 'flex',
         alignItems: 'center',
         gap: 16,
       }}>
+
+        {/* Logo / Retour */}
         {onBack ? (
-          <button
-            onClick={onBack}
-            style={{
-              background: 'rgba(255,255,255,.12)',
-              border: '1px solid rgba(255,255,255,.2)',
-              color: '#fff',
-              borderRadius: 'var(--radius-sm)',
-              padding: '5px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              transition: 'background var(--transition-fast)',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <button onClick={onBack} style={actionBtnStyle}>
             ← Retour
           </button>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-accent)',
+              background: 'var(--terracotta)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 16,
-              boxShadow: '0 2px 6px rgba(5,150,105,.35)',
+              fontSize: 14,
             }}>🏠</div>
           </div>
         )}
 
+        {/* Title */}
         <h1 style={{
-          fontSize: 15,
+          fontFamily: 'var(--font-serif)',
+          fontSize: 16,
           fontWeight: 700,
+          fontStyle: 'italic',
           flex: 1,
-          color: '#fff',
+          color: 'var(--header-text)',
           letterSpacing: '-.01em',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
@@ -110,86 +137,46 @@ export function Header({ title = 'Portefeuille Locatif', onBack }: HeaderProps) 
 
         {/* Period selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,.55)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>Période</span>
+          <span style={{ fontSize: 10, color: 'var(--header-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.10em' }}>Période</span>
           <select
-            style={{
-              padding: '5px 10px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid rgba(255,255,255,.2)',
-              background: 'rgba(255,255,255,.1)',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none',
-            }}
+            style={selectStyle}
             value={period.mode}
             onChange={(e) => handleModeChange(e.target.value as PeriodFilter['mode'])}
           >
             <option value="year">Année</option>
             <option value="rolling_12m">12 derniers mois</option>
           </select>
-
           {period.mode === 'year' && (
             <select
-              style={{
-                padding: '5px 10px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid rgba(255,255,255,.2)',
-                background: 'rgba(255,255,255,.1)',
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none',
-              }}
+              style={selectStyle}
               value={period.year ?? currentYear}
               onChange={(e) => setPeriod({ mode: 'year', year: parseInt(e.target.value) })}
             >
-              {years.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           )}
         </div>
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={handleImport} style={actionBtnStyle}>↑ Import</button>
+          <button onClick={exportData} style={actionBtnStyle}>↓ Export</button>
+
+          {/* Dark mode toggle */}
           <button
-            onClick={handleImport}
+            onClick={() => setDark(!dark)}
             style={{
-              background: 'rgba(255,255,255,.1)',
-              border: '1px solid rgba(255,255,255,.2)',
-              color: '#fff',
+              ...actionBtnStyle,
+              width: 34,
+              height: 34,
+              padding: 0,
+              justifyContent: 'center',
+              fontSize: 15,
               borderRadius: 'var(--radius-sm)',
-              padding: '5px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
             }}
+            title={dark ? 'Mode clair' : 'Mode sombre'}
           >
-            ↑ Import
-          </button>
-          <button
-            onClick={exportData}
-            style={{
-              background: 'rgba(255,255,255,.1)',
-              border: '1px solid rgba(255,255,255,.2)',
-              color: '#fff',
-              borderRadius: 'var(--radius-sm)',
-              padding: '5px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            ↓ Export
+            {dark ? '☀️' : '🌙'}
           </button>
         </div>
       </div>
