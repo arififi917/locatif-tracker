@@ -117,8 +117,7 @@ export function parseLoanScheduleCSV(
 // • date             YYYY-MM-DD                            obligatoire
 // • propertyId       id du bien                            obligatoire
 // • amount           décimal, peut être négatif (régul)   obligatoire
-// • label            texte libre                           optionnel
-//                    défaut : "Loyer" ou "Régularisation"
+// • label            texte libre                           optionnel (vide si absent)
 // • chargesReceived  provisions charges locataire          optionnel
 // • managementFees   frais de gestion (valeur absolue)     optionnel
 //
@@ -189,8 +188,7 @@ export function parseRentCSV(
       propertyId,
       date,
       amount,
-      label: raw['label']?.trim() || (amount < 0 ? 'Régularisation' : 'Loyer'),
-      // rentHC déduit : loyer HC = encaissement total - charges perçues + frais gestion
+      label: raw['label']?.trim() || '',
       rentHC: deriveRentHC(amount, chargesReceived, managementFees),
       chargesReceived,
       managementFees,
@@ -212,7 +210,7 @@ export function parseRentCSV(
 // • category    charges | taxe_fonciere | assurance |  obligatoire
 //               travaux | gestion | divers
 // • amount      décimal positif                        obligatoire
-// • label       texte libre                            optionnel
+// • label       texte libre                            optionnel (vide si absent)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPENSE_REQUIRED = ['date', 'propertyId', 'category', 'amount']
@@ -271,7 +269,7 @@ export function parseExpenseCSV(
       propertyId,
       date,
       amount,
-      label: raw['label']?.trim() || category,
+      label: raw['label']?.trim() || '',
       category,
       isRecoverable: false,
     })
