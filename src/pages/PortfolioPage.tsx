@@ -39,19 +39,12 @@ function PropertyRow({ property, onSelect }: { property: Property; onSelect: () 
         <span style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{formatPercent(kpi.equityDynamiqueYield)}</span>
       </td>
       <td style={{ textAlign: 'right' }}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 3,
-            fontSize: 11,
-            color: 'var(--color-primary-muted)',
-            background: 'var(--color-primary-light)',
-            padding: '2px 8px',
-            borderRadius: 'var(--radius-full)',
-            fontWeight: 600,
-          }}
-        >
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          fontSize: 11, color: 'var(--color-primary-muted)',
+          background: 'var(--color-primary-light)',
+          padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600,
+        }}>
           Détail →
         </span>
       </td>
@@ -72,7 +65,6 @@ export function PortfolioPage({ onSelectProperty }: Props) {
 
   return (
     <div>
-      {/* Page header */}
       <div className="page-header">
         <div className="page-header-left">
           <h2 className="page-title">Vue portefeuille</h2>
@@ -86,7 +78,6 @@ export function PortfolioPage({ onSelectProperty }: Props) {
         </div>
       </div>
 
-      {/* KPI Portfolio */}
       {data.properties.length > 0 && (
         <>
           {/* Patrimoine */}
@@ -94,14 +85,31 @@ export function PortfolioPage({ onSelectProperty }: Props) {
             <span className="section-title">Patrimoine</span>
           </div>
           <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
-            <KpiCard label="Valeur brute" value={formatCurrency(portfolio.totalCurrentValue)} accent="var(--kpi-accent-blue)" />
-            <KpiCard label="CRD total" value={formatCurrency(portfolio.totalCRD)} accent="var(--kpi-accent-amber)" />
-            <KpiCard label="Equity nette" value={formatCurrency(portfolio.totalNetValue)} accent="var(--kpi-accent-sky)" sub="Valeur − CRD" />
+            <KpiCard
+              label="Valeur brute"
+              value={formatCurrency(portfolio.totalCurrentValue)}
+              accent="var(--kpi-accent-blue)"
+              tooltip="Somme des valeurs de marché estimées de tous vos biens."
+            />
+            <KpiCard
+              label="CRD total"
+              value={formatCurrency(portfolio.totalCRD)}
+              accent="var(--kpi-accent-amber)"
+              tooltip="Capital Restant Dû : total des emprunts encore à rembourser sur l'ensemble du portefeuille."
+            />
+            <KpiCard
+              label="Equity nette"
+              value={formatCurrency(portfolio.totalNetValue)}
+              accent="var(--kpi-accent-sky)"
+              sub="Valeur − CRD"
+              tooltip="Votre patrimoine net : valeur totale des biens moins le total des CRD. C'est ce que vous récupèreriez (avant impôts) en vendant tout."
+            />
             <KpiCard
               label="Plus-value latente"
               value={formatCurrency(portfolio.plusValue)}
               positive={portfolio.plusValue > 0}
               negative={portfolio.plusValue < 0}
+              tooltip="Différence entre la valeur actuelle totale et le coût d'acquisition total de l'ensemble du portefeuille."
             />
           </div>
 
@@ -110,16 +118,38 @@ export function PortfolioPage({ onSelectProperty }: Props) {
             <span className="section-title">Flux — {periodLabel}</span>
           </div>
           <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
-            <KpiCard label="Loyers" value={formatCurrency(portfolio.realRents)} positive={portfolio.realRents > 0} accent="var(--kpi-accent-emerald)" />
-            <KpiCard label="Charges" value={formatCurrency(portfolio.totalCharges)} accent="var(--kpi-accent-rose)" />
-            <KpiCard label="Coût crédit (int.+ass.)" value={formatCurrency(portfolio.creditCostOnly)} accent="var(--kpi-accent-amber)" />
-            <KpiCard label="Mensualités complètes" value={formatCurrency(portfolio.creditMensualiteComplete)} accent="var(--kpi-accent-amber)" />
+            <KpiCard
+              label="Loyers"
+              value={formatCurrency(portfolio.realRents)}
+              positive={portfolio.realRents > 0}
+              accent="var(--kpi-accent-emerald)"
+              tooltip="Total des loyers encaissés sur tous les biens pour la période sélectionnée."
+            />
+            <KpiCard
+              label="Charges"
+              value={formatCurrency(portfolio.totalCharges)}
+              accent="var(--kpi-accent-rose)"
+              tooltip="Total des dépenses (hors assurance emprunteur) sur l'ensemble du portefeuille pour la période."
+            />
+            <KpiCard
+              label="Coût crédit (int.+ass.)"
+              value={formatCurrency(portfolio.creditCostOnly)}
+              accent="var(--kpi-accent-amber)"
+              tooltip="Somme des intérêts et assurances emprunteur payés sur la période. C'est le vrai coût économique du financement."
+            />
+            <KpiCard
+              label="Mensualités complètes"
+              value={formatCurrency(portfolio.creditMensualiteComplete)}
+              accent="var(--kpi-accent-amber)"
+              tooltip="Total des mensualités débitées (capital + intérêts + assurance) sur l'ensemble des prêts pour la période."
+            />
             <KpiCard
               label="CF opérationnel"
               value={formatCurrency(portfolio.cashflowOperationnel)}
               positive={portfolio.cashflowOperationnel > 0}
               negative={portfolio.cashflowOperationnel < 0}
               sub="Loyers − charges"
+              tooltip="Loyers totaux moins toutes les charges d'exploitation (hors crédit). Mesure la performance brute du parc locatif."
             />
             <KpiCard
               label="CF économique"
@@ -127,6 +157,7 @@ export function PortfolioPage({ onSelectProperty }: Props) {
               positive={portfolio.cashflowEconomique > 0}
               negative={portfolio.cashflowEconomique < 0}
               sub="− int./assurance"
+              tooltip="CF opérationnel moins le coût économique du crédit. Reflète la rentabilité réelle après financement, sans comptabiliser le remboursement du capital."
             />
             <KpiCard
               label="CF trésorerie"
@@ -134,6 +165,7 @@ export function PortfolioPage({ onSelectProperty }: Props) {
               positive={portfolio.cashflowTresorerie > 0}
               negative={portfolio.cashflowTresorerie < 0}
               sub="− mensualité complète"
+              tooltip="Argent net disponible après toutes les sorties de trésorerie : loyers − charges − mensualités complètes. Impact réel sur votre compte courant."
             />
             <KpiCard
               label="Taux d'effort"
@@ -141,6 +173,7 @@ export function PortfolioPage({ onSelectProperty }: Props) {
               positive={portfolio.tauxEffort < 0.8}
               negative={portfolio.tauxEffort >= 1}
               sub="Mensualités / loyers"
+              tooltip="Part des loyers absorbée par les mensualités de crédit sur l'ensemble du portefeuille. Indicateur de solidité financière : en dessous de 80% c'est sain, au-dessus de 100% les loyers ne couvrent plus les mensualités."
             />
           </div>
 
@@ -149,20 +182,38 @@ export function PortfolioPage({ onSelectProperty }: Props) {
             <span className="section-title">Rendements annualisés</span>
           </div>
           <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
-            <KpiCard label="Rendement brut" value={formatPercent(portfolio.grossYield)} accent="var(--kpi-accent-violet)" sub="Loyers / coût acq." />
-            <KpiCard label="Rdt opérationnel" value={formatPercent(portfolio.netYieldOperationnel)} accent="var(--kpi-accent-sky)" sub="CF opérat. / coût acq." />
-            <KpiCard label="Rdt économique" value={formatPercent(portfolio.netYieldEconomique)} accent="var(--kpi-accent-sky)" sub="CF économ. / coût acq." />
+            <KpiCard
+              label="Rendement brut"
+              value={formatPercent(portfolio.grossYield)}
+              accent="var(--kpi-accent-violet)"
+              sub="Loyers / coût acq."
+              tooltip="Loyers annuels bruts / coût total d'acquisition du portefeuille. Point de départ pour comparer des investissements entre eux."
+            />
+            <KpiCard
+              label="Rdt opérationnel"
+              value={formatPercent(portfolio.netYieldOperationnel)}
+              accent="var(--kpi-accent-sky)"
+              sub="CF opérat. / coût acq."
+              tooltip="Cashflow opérationnel annuel (loyers − charges) / coût d'acquisition total. Rendement net de charges, indépendant du financement."
+            />
+            <KpiCard
+              label="Rdt économique"
+              value={formatPercent(portfolio.netYieldEconomique)}
+              accent="var(--kpi-accent-sky)"
+              sub="CF économ. / coût acq."
+              tooltip="Cashflow économique annuel (loyers − charges − intérêts/assurance) / coût d'acquisition. Tient compte du coût réel du financement."
+            />
             <KpiCard
               label="Rdt equity nette"
               value={formatPercent(portfolio.equityDynamiqueYield)}
               accent="var(--kpi-accent-emerald)"
               sub="CF économ. / equity nette"
+              tooltip="Cashflow économique annuel rapporté à l'equity nette totale du portefeuille. Mesure ce que rapporte votre capital réellement engagé."
             />
           </div>
         </>
       )}
 
-      {/* Table biens */}
       {data.properties.length === 0 ? (
         <div className="card">
           <div className="empty-state">
