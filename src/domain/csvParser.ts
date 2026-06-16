@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { type LoanScheduleRow, type RentEvent, type ExpenseEvent, type Property, EXPENSE_CATEGORIES } from './types'
+import { type LoanScheduleRow, type RentEvent, type ExpenseEvent, type Property } from './types'
 import { nanoid } from '../utils/nanoid'
 
 type RawRow = Record<string, string>
@@ -17,10 +17,8 @@ function resolvePropertyId(
   properties: Property[],
 ): { id: string } | { error: string } {
   if (!raw) return { error: 'propertyId manquant' }
-  // 1. Correspondance exacte sur l'ID
   const byId = properties.find((p) => p.id === raw)
   if (byId) return { id: byId.id }
-  // 2. Correspondance insensible à la casse sur le nom
   const lower = raw.toLowerCase()
   const byName = properties.find((p) => p.name.toLowerCase() === lower)
   if (byName) return { id: byName.id }
@@ -233,8 +231,7 @@ export function parseRentCSV(
 //
 // • date        YYYY-MM-DD                              obligatoire
 // • propertyId  ID technique OU nom du bien             obligatoire
-// • category    charges | taxe_fonciere | assurance |  obligatoire
-//               travaux | gestion | divers
+// • category    texte libre                             obligatoire
 // • amount      décimal positif                        obligatoire
 // • label       texte libre                            optionnel (vide si absent)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,7 +258,6 @@ export function parseExpenseCSV(
     return { rows: [], errors }
   }
 
-  const validCategories = EXPENSE_CATEGORIES as readonly string[]
   const rows: ExpenseEvent[] = []
 
   result.data.forEach((raw, idx) => {
@@ -276,10 +272,8 @@ export function parseExpenseCSV(
       errors.push(`Ligne ${lineNum} : date invalide (attendu YYYY-MM-DD)`)
       return
     }
-    if (!validCategories.includes(category)) {
-      errors.push(
-        `Ligne ${lineNum} : catégorie "${category}" inconnue — valeurs acceptées : ${validCategories.join(', ')}`
-      )
+    if (!category) {
+      errors.push(`Ligne ${lineNum} : category manquante`)
       return
     }
     if (isNaN(amount) || amount <= 0) {
