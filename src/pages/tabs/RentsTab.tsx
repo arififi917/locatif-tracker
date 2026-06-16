@@ -1,18 +1,21 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAppData } from '../../hooks/useAppData'
 import { usePeriodFilter } from '../../hooks/usePeriodFilter'
 import { isWithinPeriod } from '../../domain/period'
 import { RentEventForm } from '../../components/forms/RentEventForm'
+import { parseRentCSV } from '../../domain/csvParser'
 import { formatCurrency, formatDate } from '../../utils/format'
 import { type RentEvent } from '../../domain/types'
 
 type Props = { propertyId: string }
 
 export function RentsTab({ propertyId }: Props) {
-  const { data, deleteRentEvent } = useAppData()
+  const { data, deleteRentEvent, bulkAddRentEvents } = useAppData()
   const { period } = usePeriodFilter()
   const [showAdd, setShowAdd] = useState(false)
   const [duplicate, setDuplicate] = useState<RentEvent | null>(null)
+  const [csvErrors, setCsvErrors] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const rents = data.rentEvents
     .filter((r) => r.propertyId === propertyId && isWithinPeriod(r.date, period))
@@ -23,6 +26,26 @@ export function RentsTab({ propertyId }: Props) {
   const totalChargesReceived = rents.reduce((s, r) => s + (r.chargesReceived ?? 0), 0)
   const totalManagementFees = rents.reduce((s, r) => s + (r.managementFees ?? 0), 0)
   const hasDetail = rents.some((r) => r.rentHC != null)
+
+  function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const { rows, errors } = parseRentCSV(text, data.properties)
+      if (errors.length > 0) {
+        setCsvErrors(errors)
+        return
+      }
+      bulkAddRentEvents(rows)
+      setCsvErrors([])
+      alert(`${rows.length} loyer(s) importé(s) avec succès.`)
+    }
+    reader.readAsText(file)
+    // reset pour permettre re-sélection du même fichier
+    e.target.value = ''
+  }
 
   return (
     <div>
@@ -47,8 +70,33 @@ export function RentsTab({ propertyId }: Props) {
             </span>
           )}
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter</button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={handleCsvImport}
+          />
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            ↑ Import CSV
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter</button>
+        </div>
       </div>
+
+      {csvErrors.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--color-negative)', marginBottom: 'var(--space-4)' }}>
+          <p style={{ fontWeight: 700, color: 'var(--color-negative)', marginBottom: 6 }}>Erreurs dans le CSV :</p>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
+            {csvErrors.map((err, i) => <li key={i}>{err}</li>)}
+          </ul>
+          <button className="btn btn-ghost btn-xs" style={{ marginTop: 8 }} onClick={() => setCsvErrors([])}>Fermer</button>
+        </div>
+      )}
 
       {rents.length === 0 ? (
         <div className="card">

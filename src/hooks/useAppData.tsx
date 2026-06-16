@@ -50,11 +50,6 @@ type AppDataContextValue = {
   addLoan: (l: Omit<Loan, 'id'>) => void
   updateLoan: (l: Loan) => void
   deleteLoan: (id: string) => void
-  /**
-   * Remplace les lignes TA d'un prêt.
-   * Si `deduced` est fourni, patche aussi les champs du Loan correspondant
-   * (uniquement les champs dont la valeur actuelle est nulle / vide / 0).
-   */
   setLoanSchedule: (
     loanId: string,
     rows: LoanScheduleRow[],
@@ -62,8 +57,10 @@ type AppDataContextValue = {
   ) => void
   addRentEvent: (e: Omit<RentEvent, 'id'>) => void
   deleteRentEvent: (id: string) => void
+  bulkAddRentEvents: (events: RentEvent[]) => void
   addExpenseEvent: (e: Omit<ExpenseEvent, 'id'>) => void
   deleteExpenseEvent: (id: string) => void
+  bulkAddExpenseEvents: (events: ExpenseEvent[]) => void
   importData: (d: AppData) => void
   exportData: () => void
 }
@@ -143,7 +140,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     (loanId: string, rows: LoanScheduleRow[], deduced?: LoanFieldsFromSchedule) => {
       const updatedLoans = data.loans.map((l) => {
         if (l.id !== loanId) return l
-        // Patch uniquement les champs vides/nuls sur le prêt existant
         const patch: Partial<Loan> = { hasSchedule: rows.length > 0 }
         if (deduced) {
           if (!l.principal || l.principal === 0) patch.principal = deduced.principal
@@ -157,7 +153,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }
         return { ...l, ...patch }
       })
-
       persist({
         ...data,
         loanSchedules: [
@@ -184,6 +179,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [data, persist]
   )
 
+  const bulkAddRentEvents = useCallback(
+    (events: RentEvent[]) => {
+      persist({ ...data, rentEvents: [...data.rentEvents, ...events] })
+    },
+    [data, persist]
+  )
+
   const addExpenseEvent = useCallback(
     (e: Omit<ExpenseEvent, 'id'>) => {
       persist({ ...data, expenseEvents: [...data.expenseEvents, { ...e, id: nanoid() }] })
@@ -194,6 +196,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const deleteExpenseEvent = useCallback(
     (id: string) => {
       persist({ ...data, expenseEvents: data.expenseEvents.filter((e) => e.id !== id) })
+    },
+    [data, persist]
+  )
+
+  const bulkAddExpenseEvents = useCallback(
+    (events: ExpenseEvent[]) => {
+      persist({ ...data, expenseEvents: [...data.expenseEvents, ...events] })
     },
     [data, persist]
   )
@@ -232,8 +241,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setLoanSchedule,
         addRentEvent,
         deleteRentEvent,
+        bulkAddRentEvents,
         addExpenseEvent,
         deleteExpenseEvent,
+        bulkAddExpenseEvents,
         importData,
         exportData,
       }}

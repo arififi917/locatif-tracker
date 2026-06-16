@@ -1,18 +1,21 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAppData } from '../../hooks/useAppData'
 import { usePeriodFilter } from '../../hooks/usePeriodFilter'
 import { isWithinPeriod } from '../../domain/period'
 import { ExpenseEventForm } from '../../components/forms/ExpenseEventForm'
+import { parseExpenseCSV } from '../../domain/csvParser'
 import { formatCurrency, formatDate } from '../../utils/format'
 import { EXPENSE_CATEGORIES, type ExpenseEvent } from '../../domain/types'
 
 type Props = { propertyId: string }
 
 export function ExpensesTab({ propertyId }: Props) {
-  const { data, deleteExpenseEvent } = useAppData()
+  const { data, deleteExpenseEvent, bulkAddExpenseEvents } = useAppData()
   const { period } = usePeriodFilter()
   const [showAdd, setShowAdd] = useState(false)
   const [duplicate, setDuplicate] = useState<ExpenseEvent | null>(null)
+  const [csvErrors, setCsvErrors] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const expenses = data.expenseEvents
     .filter((e) => e.propertyId === propertyId && isWithinPeriod(e.date, period))
@@ -27,6 +30,25 @@ export function ExpensesTab({ propertyId }: Props) {
     cat,
     total: expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0),
   })).filter((x) => x.total > 0)
+
+  function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const { rows, errors } = parseExpenseCSV(text, data.properties)
+      if (errors.length > 0) {
+        setCsvErrors(errors)
+        return
+      }
+      bulkAddExpenseEvents(rows)
+      setCsvErrors([])
+      alert(`${rows.length} dépense(s) importée(s) avec succès.`)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   return (
     <div>
@@ -49,8 +71,33 @@ export function ExpensesTab({ propertyId }: Props) {
             </span>
           )}
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter</button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={handleCsvImport}
+          />
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            ↑ Import CSV
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter</button>
+        </div>
       </div>
+
+      {csvErrors.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--color-negative)', marginBottom: 'var(--space-4)' }}>
+          <p style={{ fontWeight: 700, color: 'var(--color-negative)', marginBottom: 6 }}>Erreurs dans le CSV :</p>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
+            {csvErrors.map((err, i) => <li key={i}>{err}</li>)}
+          </ul>
+          <button className="btn btn-ghost btn-xs" style={{ marginTop: 8 }} onClick={() => setCsvErrors([])}>Fermer</button>
+        </div>
+      )}
 
       {byCategory.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
