@@ -3,7 +3,7 @@ import { startOfYear, endOfYear, subMonths, parseISO, isWithinInterval } from 'd
 
 export function getPeriodBounds(period: PeriodFilter): { start: Date; end: Date } {
   if (period.mode === 'all') {
-    return { start: new Date(0), end: new Date(8640000000000000) }
+    return { start: new Date(0), end: new Date() }
   }
   if (period.mode === 'year') {
     const year = period.year ?? new Date().getFullYear()
@@ -16,7 +16,9 @@ export function getPeriodBounds(period: PeriodFilter): { start: Date; end: Date 
 }
 
 export function isWithinPeriod(dateStr: string, period: PeriodFilter): boolean {
-  if (period.mode === 'all') return true
+  if (period.mode === 'all') {
+    return parseISO(dateStr) <= new Date()
+  }
   const date = parseISO(dateStr)
   const { start, end } = getPeriodBounds(period)
   return isWithinInterval(date, { start, end })
