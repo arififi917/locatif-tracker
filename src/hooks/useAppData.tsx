@@ -5,7 +5,15 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { type AppData, type Property, type Loan, type LoanScheduleRow, type RentEvent, type ExpenseEvent } from '../domain/types'
+import {
+  type AppData,
+  type Property,
+  type Loan,
+  type LoanScheduleRow,
+  type RentEvent,
+  type ExpenseEvent,
+} from '../domain/types'
+import { type LoanFieldsFromSchedule } from '../domain/csvParser'
 import { nanoid } from '../utils/nanoid'
 
 const STORAGE_KEY = 'locatifAppData'
@@ -42,7 +50,16 @@ type AppDataContextValue = {
   addLoan: (l: Omit<Loan, 'id'>) => void
   updateLoan: (l: Loan) => void
   deleteLoan: (id: string) => void
-  setLoanSchedule: (loanId: string, rows: LoanScheduleRow[]) => void
+  /**
+   * Remplace les lignes TA d'un prêt.
+   * Si `deduced` est fourni, patche aussi les champs du Loan correspondant
+   * (uniquement les champs dont la valeur actuelle est nulle / vide / 0).
+   */
+  setLoanSchedule: (
+    loanId: string,
+    rows: LoanScheduleRow[],
+    deduced?: LoanFieldsFromSchedule
+  ) => void
   addRentEvent: (e: Omit<RentEvent, 'id'>) => void
   deleteRentEvent: (id: string) => void
   addExpenseEvent: (e: Omit<ExpenseEvent, 'id'>) => void
@@ -123,14 +140,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   )
 
   const setLoanSchedule = useCallback(
-    (loanId: string, rows: LoanScheduleRow[]) => {
+    (loanId: string, rows: LoanScheduleRow[], deduced?: LoanFieldsFromSchedule) => {
+      const updatedLoans = data.loans.map((l) => {
+        if (l.id !== loanId) return l
+        // Patch uniquement les champs vides/nuls sur le prêt existant
+        const patch: Partial<Loan> = { hasSchedule: rows.length > 0 }
+        if (deduced) {
+          if (!l.principal || l.principal === 0) patch.principal = deduced.principal
+          if (!l.startDate) patch.startDate = deduced.startDate
+          if (!l.endDate) patch.endDate = deduced.endDate
+          if (!l.rate || l.rate === 0) patch.rate = deduced.rate
+          if ((!l.insuranceRate || l.insuranceRate === 0) && deduced.insuranceRate != null)
+            patch.insuranceRate = deduced.insuranceRate
+          if (!l.monthlyPayment || l.monthlyPayment === 0)
+            patch.monthlyPayment = deduced.monthlyPayment
+        }
+        return { ...l, ...patch }
+      })
+
       persist({
         ...data,
         loanSchedules: [
           ...data.loanSchedules.filter((r) => r.loanId !== loanId),
           ...rows,
         ],
-        loans: data.loans.map((l) => (l.id === loanId ? { ...l, hasSchedule: rows.length > 0 } : l)),
+        loans: updatedLoans,
       })
     },
     [data, persist]
