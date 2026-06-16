@@ -109,20 +109,29 @@ export function parseLoanScheduleCSV(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOYERS
-// Format attendu (séparateur virgule ou point-virgule, en-tête obligatoire) :
 //
-//   date,propertyId,amount,label,rentHC,chargesReceived,managementFees
+// Format CSV (séparateur "," ou ";" auto-détecté) :
 //
-// • date             YYYY-MM-DD                         obligatoire
-// • propertyId       id du bien (string)                obligatoire
-// • amount           décimal, séparateur "." — peut être négatif (régul)
-// • label            texte libre                        optionnel (défaut : "Loyer")
-// • rentHC           décimal, peut être négatif         optionnel
-// • chargesReceived  décimal                            optionnel
-// • managementFees   décimal, valeur absolue positive   optionnel
+//   date,propertyId,amount,label,chargesReceived,managementFees
+//
+// • date             YYYY-MM-DD                            obligatoire
+// • propertyId       id du bien                            obligatoire
+// • amount           décimal, peut être négatif (régul)   obligatoire
+// • label            texte libre                           optionnel
+//                    défaut : "Loyer" ou "Régularisation"
+// • chargesReceived  provisions charges locataire          optionnel
+// • managementFees   frais de gestion (valeur absolue)     optionnel
+//
+// rentHC est déduit automatiquement :
+//   rentHC = amount - (chargesReceived ?? 0) + (managementFees ?? 0)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RENT_REQUIRED = ['date', 'propertyId', 'amount']
+
+/** rentHC = amount encaissé - charges reçues + frais de gestion récupérés */
+export function deriveRentHC(amount: number, chargesReceived?: number, managementFees?: number): number {
+  return amount - (chargesReceived ?? 0) + (managementFees ?? 0)
+}
 
 export function parseRentCSV(
   csvText: string
@@ -132,7 +141,6 @@ export function parseRentCSV(
     skipEmptyLines: true,
     dynamicTyping: false,
     transformHeader: (h) => h.trim(),
-    // accepte ";" comme délimiteur alternatif (exports Excel FR)
     delimiter: csvText.includes(';') && !csvText.includes(',') ? ';' : ',',
   })
 
@@ -173,15 +181,19 @@ export function parseRentCSV(
       return isNaN(n) ? undefined : n
     }
 
+    const chargesReceived = parseOpt('chargesReceived')
+    const managementFees = parseOpt('managementFees')
+
     rows.push({
       id: nanoid(),
       propertyId,
       date,
       amount,
       label: raw['label']?.trim() || (amount < 0 ? 'Régularisation' : 'Loyer'),
-      rentHC: parseOpt('rentHC'),
-      chargesReceived: parseOpt('chargesReceived'),
-      managementFees: parseOpt('managementFees'),
+      // rentHC déduit : loyer HC = encaissement total - charges perçues + frais gestion
+      rentHC: deriveRentHC(amount, chargesReceived, managementFees),
+      chargesReceived,
+      managementFees,
     })
   })
 
@@ -190,14 +202,15 @@ export function parseRentCSV(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DÉPENSES
-// Format attendu :
+//
+// Format CSV :
 //
 //   date,propertyId,category,amount,label
 //
 // • date        YYYY-MM-DD                              obligatoire
 // • propertyId  id du bien                             obligatoire
-// • category    charges | taxe_fonciere | assurance |
-//               travaux | gestion | divers             obligatoire
+// • category    charges | taxe_fonciere | assurance |  obligatoire
+//               travaux | gestion | divers
 // • amount      décimal positif                        obligatoire
 // • label       texte libre                            optionnel
 // ─────────────────────────────────────────────────────────────────────────────
