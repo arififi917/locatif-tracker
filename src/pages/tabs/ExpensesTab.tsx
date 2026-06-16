@@ -30,27 +30,44 @@ export function ExpensesTab({ propertyId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>Total : {formatCurrency(totalAll)}</span>
-          <span style={{ marginLeft: 16, color: 'var(--color-text-muted)', fontSize: 13 }}>
-            dont non récupérables : {formatCurrency(totalNonRecoverable)}
+      <div className="section-header" style={{ marginBottom: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <span className="section-title">Dépenses</span>
+          <span style={{
+            background: 'var(--color-negative-light)',
+            color: 'var(--color-negative)',
+            borderRadius: 'var(--radius-full)',
+            padding: '3px 10px',
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            Total : {formatCurrency(totalAll)}
           </span>
+          {totalNonRecoverable > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              dont non récupérables : {formatCurrency(totalNonRecoverable)}
+            </span>
+          )}
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter</button>
       </div>
 
       {byCategory.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
           {byCategory.map(({ cat, total }) => (
-            <span key={cat} className="badge badge-blue">{cat} : {formatCurrency(total)}</span>
+            <span key={cat} className="badge badge-navy">{cat} : {formatCurrency(total)}</span>
           ))}
         </div>
       )}
 
       {expenses.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>
-          Aucune dépense sur cette période.
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <p className="empty-state-title">Aucune dépense sur cette période</p>
+            <p className="empty-state-desc">Enregistrez vos charges et dépenses pour calculer le rendement net réel.</p>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Ajouter une dépense</button>
+          </div>
         </div>
       ) : (
         <div className="table-container">
@@ -68,31 +85,19 @@ export function ExpensesTab({ propertyId }: Props) {
             <tbody>
               {expenses.map((e) => (
                 <tr key={e.id}>
-                  <td>{formatDate(e.date)}</td>
-                  <td>{e.label || '—'}</td>
-                  <td><span className="badge badge-gray">{e.category}</span></td>
+                  <td style={{ color: 'var(--color-text-muted)', fontSize: 12, fontWeight: 500 }}>{formatDate(e.date)}</td>
+                  <td style={{ fontWeight: 600 }}>{e.label || '—'}</td>
+                  <td><span className="badge badge-navy">{e.category}</span></td>
                   <td>
                     {e.isRecoverable
                       ? <span className="badge badge-green">Oui</span>
                       : <span className="badge badge-gray">Non</span>}
                   </td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(e.amount)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(e.amount)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        title="Dupliquer"
-                        onClick={() => setDuplicate(e)}
-                      >
-                        ⧉
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        title="Supprimer"
-                        onClick={() => deleteExpenseEvent(e.id)}
-                      >
-                        🗑
-                      </button>
+                      <button className="btn btn-ghost btn-xs" title="Dupliquer" onClick={() => setDuplicate(e)}>⧉</button>
+                      <button className="btn btn-danger btn-xs" title="Supprimer" onClick={() => deleteExpenseEvent(e.id)}>🗑</button>
                     </div>
                   </td>
                 </tr>
@@ -102,16 +107,8 @@ export function ExpensesTab({ propertyId }: Props) {
         </div>
       )}
 
-      {showAdd && (
-        <ExpenseEventForm propertyId={propertyId} onClose={() => setShowAdd(false)} />
-      )}
-      {duplicate && (
-        <ExpenseEventForm
-          propertyId={propertyId}
-          initial={{ ...duplicate, date: '' }} // date vide pour forcer la sélection
-          onClose={() => setDuplicate(null)}
-        />
-      )}
+      {showAdd && <ExpenseEventForm propertyId={propertyId} onClose={() => setShowAdd(false)} />}
+      {duplicate && <ExpenseEventForm propertyId={propertyId} initial={{ ...duplicate, date: '' }} onClose={() => setDuplicate(null)} />}
     </div>
   )
 }

@@ -26,14 +26,24 @@ export function RentsTab({ propertyId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>Total encaissé : {formatCurrency(totalAmount)}</span>
-          {hasDetail && (
-            <span style={{ marginLeft: 14, fontSize: 12, color: 'var(--color-text-muted)' }}>
+      <div className="section-header" style={{ marginBottom: 'var(--space-5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <span className="section-title">Loyers</span>
+          <span style={{
+            background: 'var(--color-positive-light)',
+            color: 'var(--color-positive)',
+            borderRadius: 'var(--radius-full)',
+            padding: '3px 10px',
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            Total encaissé : {formatCurrency(totalAmount)}
+          </span>
+          {hasDetail && totalRentHC > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
               HC {formatCurrency(totalRentHC)}
-              {totalChargesReceived > 0 && ` + ch. {formatCurrency(totalChargesReceived)}`}
-              {totalManagementFees > 0 && ` − gestion {formatCurrency(totalManagementFees)}`}
+              {totalChargesReceived > 0 && ` + ch. ${formatCurrency(totalChargesReceived)}`}
+              {totalManagementFees > 0 && ` − gestion ${formatCurrency(totalManagementFees)}`}
             </span>
           )}
         </div>
@@ -41,8 +51,13 @@ export function RentsTab({ propertyId }: Props) {
       </div>
 
       {rents.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>
-          Aucun loyer sur cette période.
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">💰</div>
+            <p className="empty-state-title">Aucun loyer sur cette période</p>
+            <p className="empty-state-desc">Saisissez les loyers encaissés pour calculer vos rendements.</p>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Ajouter un loyer</button>
+          </div>
         </div>
       ) : (
         <div className="table-container">
@@ -61,8 +76,8 @@ export function RentsTab({ propertyId }: Props) {
             <tbody>
               {rents.map((r) => (
                 <tr key={r.id}>
-                  <td>{formatDate(r.date)}</td>
-                  <td>{r.label}</td>
+                  <td style={{ color: 'var(--color-text-muted)', fontSize: 12, fontWeight: 500 }}>{formatDate(r.date)}</td>
+                  <td style={{ fontWeight: 600 }}>{r.label}</td>
                   {hasDetail && (
                     <td style={{ textAlign: 'right', color: 'var(--color-text-muted)' }}>
                       {r.rentHC != null ? formatCurrency(r.rentHC) : '—'}
@@ -78,25 +93,13 @@ export function RentsTab({ propertyId }: Props) {
                       {r.managementFees ? `−${formatCurrency(r.managementFees)}` : '—'}
                     </td>
                   )}
-                  <td style={{ textAlign: 'right' }} className="positive">
-                    {formatCurrency(r.amount)}
+                  <td style={{ textAlign: 'right' }}>
+                    <span className="positive">{formatCurrency(r.amount)}</span>
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        title="Dupliquer"
-                        onClick={() => setDuplicate(r)}
-                      >
-                        ⧉
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        title="Supprimer"
-                        onClick={() => deleteRentEvent(r.id)}
-                      >
-                        🗑
-                      </button>
+                      <button className="btn btn-ghost btn-xs" title="Dupliquer" onClick={() => setDuplicate(r)}>⧉</button>
+                      <button className="btn btn-danger btn-xs" title="Supprimer" onClick={() => deleteRentEvent(r.id)}>🗑</button>
                     </div>
                   </td>
                 </tr>
@@ -106,19 +109,8 @@ export function RentsTab({ propertyId }: Props) {
         </div>
       )}
 
-      {showAdd && (
-        <RentEventForm
-          propertyId={propertyId}
-          onClose={() => setShowAdd(false)}
-        />
-      )}
-      {duplicate && (
-        <RentEventForm
-          propertyId={propertyId}
-          initial={{ ...duplicate, date: '' }} // date vide pour forcer la sélection
-          onClose={() => setDuplicate(null)}
-        />
-      )}
+      {showAdd && <RentEventForm propertyId={propertyId} onClose={() => setShowAdd(false)} />}
+      {duplicate && <RentEventForm propertyId={propertyId} initial={{ ...duplicate, date: '' }} onClose={() => setDuplicate(null)} />}
     </div>
   )
 }

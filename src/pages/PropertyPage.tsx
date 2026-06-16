@@ -8,11 +8,11 @@ import { PropertyForm } from '../components/forms/PropertyForm'
 
 type Tab = 'synthesis' | 'loans' | 'rents' | 'expenses'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'synthesis', label: '📊 Synthèse' },
-  { id: 'loans', label: '🏦 Prêts' },
-  { id: 'rents', label: '💰 Loyers' },
-  { id: 'expenses', label: '📋 Dépenses' },
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'synthesis', label: 'Synthèse', icon: '📊' },
+  { id: 'loans', label: 'Prêts', icon: '🏦' },
+  { id: 'rents', label: 'Loyers', icon: '💰' },
+  { id: 'expenses', label: 'Dépenses', icon: '📋' },
 ]
 
 type Props = { propertyId: string; onBack: () => void }
@@ -24,7 +24,12 @@ export function PropertyPage({ propertyId, onBack }: Props) {
 
   const property = data.properties.find((p) => p.id === propertyId)
   if (!property) {
-    return <div>Bien introuvable. <button className="btn btn-secondary" onClick={onBack}>Retour</button></div>
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: 'var(--space-10)' }}>
+        <p style={{ marginBottom: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Bien introuvable.</p>
+        <button className="btn btn-secondary" onClick={onBack}>← Retour au portefeuille</button>
+      </div>
+    )
   }
 
   function handleDelete() {
@@ -36,17 +41,29 @@ export function PropertyPage({ propertyId, onBack }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700 }}>{property.name}</h2>
-          {property.location && <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>📍 {property.location}</p>}
+      {/* Property header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h2 className="page-title">{property.name}</h2>
+          {property.location && (
+            <p className="page-subtitle">
+              <span style={{ marginRight: 4 }}>📍</span>{property.location}
+            </p>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowEdit(true)}>✏ Modifier</button>
-          <button className="btn btn-danger btn-sm" onClick={handleDelete}>🗑 Supprimer</button>
+        <div className="page-actions">
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowEdit(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            ✏ Modifier
+          </button>
+          <button className="btn btn-danger btn-sm" onClick={handleDelete}
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            🗑 Supprimer
+          </button>
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="tab-bar">
         {TABS.map((t) => (
           <button
@@ -54,7 +71,7 @@ export function PropertyPage({ propertyId, onBack }: Props) {
             className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
             onClick={() => setActiveTab(t.id)}
           >
-            {t.label}
+            <span style={{ marginRight: 5 }}>{t.icon}</span>{t.label}
           </button>
         ))}
       </div>

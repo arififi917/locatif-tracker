@@ -21,15 +21,32 @@ export function LoansTab({ propertyId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>CRD total : {formatCurrency(totalCRD)}</span>
+      <div className="section-header" style={{ marginBottom: 'var(--space-5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <span className="section-title">Prêts</span>
+          <span style={{
+            background: 'var(--color-warning-light)',
+            color: 'var(--color-warning)',
+            borderRadius: 'var(--radius-full)',
+            padding: '3px 10px',
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            CRD total : {formatCurrency(totalCRD)}
+          </span>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Ajouter un prêt</button>
       </div>
 
       {loans.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>Aucun prêt enregistré.</div>
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">🏦</div>
+            <p className="empty-state-title">Aucun prêt enregistré</p>
+            <p className="empty-state-desc">Ajoutez vos prêts immobiliers pour suivre le CRD et le coût du crédit.</p>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Ajouter un prêt</button>
+          </div>
+        </div>
       ) : (
         <div className="table-container">
           <table>
@@ -49,18 +66,23 @@ export function LoansTab({ propertyId }: Props) {
             </thead>
             <tbody>
               {loans.map((loan) => {
-                const loanRows = data.loanSchedules.filter((r) => r.loanId === loan.id && r.date <= referenceDate).sort((a, b) => b.date.localeCompare(a.date))
+                const loanRows = data.loanSchedules
+                  .filter((r) => r.loanId === loan.id && r.date <= referenceDate)
+                  .sort((a, b) => b.date.localeCompare(a.date))
                 const crd = loanRows[0]?.remainingPrincipal ?? loan.principal
                 return (
                   <tr key={loan.id}>
-                    <td style={{ fontWeight: 600 }}>{loan.name}</td>
-                    <td>{loan.lender ?? '—'}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(loan.principal)}</td>
-                    <td style={{ textAlign: 'right' }}>{loan.rate}%{loan.insuranceRate ? ` + ${loan.insuranceRate}% ass.` : ''}</td>
+                    <td style={{ fontWeight: 700 }}>{loan.name}</td>
+                    <td style={{ color: 'var(--color-text-muted)' }}>{loan.lender ?? '—'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(loan.principal)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span style={{ color: 'var(--color-info)', fontWeight: 600 }}>{loan.rate}%</span>
+                      {loan.insuranceRate ? <span style={{ color: 'var(--color-text-muted)', fontSize: 11 }}> + {loan.insuranceRate}% ass.</span> : null}
+                    </td>
                     <td style={{ textAlign: 'right' }}>{loan.monthlyPayment ? formatCurrency(loan.monthlyPayment) : '—'}</td>
-                    <td>{formatDate(loan.startDate)}</td>
-                    <td>{loan.endDate ? formatDate(loan.endDate) : '—'}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(crd)}</td>
+                    <td style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>{formatDate(loan.startDate)}</td>
+                    <td style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>{loan.endDate ? formatDate(loan.endDate) : '—'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-warning)' }}>{formatCurrency(crd)}</td>
                     <td>
                       <span className={`badge ${loan.hasSchedule ? 'badge-green' : 'badge-gray'}`}>
                         {loan.hasSchedule ? '✓ TA' : 'Sans TA'}
@@ -68,9 +90,9 @@ export function LoansTab({ propertyId }: Props) {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setImportLoan(loan)}>↑ TA</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditLoan(loan)}>✏</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => deleteLoan(loan.id)}>🗑</button>
+                        <button className="btn btn-secondary btn-xs" onClick={() => setImportLoan(loan)} title="Importer tableau d'amortissement">↑ TA</button>
+                        <button className="btn btn-ghost btn-xs" onClick={() => setEditLoan(loan)} title="Modifier">✏</button>
+                        <button className="btn btn-danger btn-xs" onClick={() => deleteLoan(loan.id)} title="Supprimer">🗑</button>
                       </div>
                     </td>
                   </tr>

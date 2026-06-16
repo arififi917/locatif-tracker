@@ -5,26 +5,90 @@
 }
 
 :root {
-  --color-bg: #f8f9fa;
-  --color-surface: #ffffff;
-  --color-border: #dee2e6;
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-positive: #16a34a;
-  --color-negative: #dc2626;
-  --radius: 8px;
-  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+  /* --- Palette Finance Premium --- */
+  --color-bg:             #f0f2f5;
+  --color-bg-subtle:      #e8ebf0;
+  --color-surface:        #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-border:         #e2e6ec;
+  --color-border-subtle:  #edf0f4;
+
+  /* Brand — Navy */
+  --color-primary:        #1a2f5e;
+  --color-primary-hover:  #152549;
+  --color-primary-light:  #eef1f8;
+  --color-primary-muted:  #6b82b0;
+
+  /* Accent — Emerald */
+  --color-accent:         #059669;
+  --color-accent-hover:   #047857;
+  --color-accent-light:   #ecfdf5;
+
+  /* Semantic */
+  --color-positive:       #059669;
+  --color-positive-light: #ecfdf5;
+  --color-negative:       #dc2626;
+  --color-negative-light: #fef2f2;
+  --color-warning:        #d97706;
+  --color-warning-light:  #fffbeb;
+  --color-danger:         #dc2626;
+  --color-info:           #0284c7;
+  --color-info-light:     #e0f2fe;
+
+  /* Text */
+  --color-text:           #0f172a;
+  --color-text-secondary: #374151;
+  --color-text-muted:     #64748b;
+  --color-text-subtle:    #94a3b8;
+  --color-text-inverse:   #ffffff;
+
+  /* KPI accent bar colors */
+  --kpi-accent-blue:      #1a2f5e;
+  --kpi-accent-emerald:   #059669;
+  --kpi-accent-amber:     #d97706;
+  --kpi-accent-rose:      #e11d48;
+  --kpi-accent-sky:       #0284c7;
+  --kpi-accent-violet:    #7c3aed;
+
+  /* Spacing scale */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm:  6px;
+  --radius:     10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs:  0 1px 2px rgba(15,23,42,.04);
+  --shadow-sm:  0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+  --shadow:     0 4px 6px rgba(15,23,42,.06), 0 2px 4px rgba(15,23,42,.04);
+  --shadow-md:  0 8px 16px rgba(15,23,42,.08), 0 4px 6px rgba(15,23,42,.05);
+  --shadow-lg:  0 20px 40px rgba(15,23,42,.10), 0 8px 16px rgba(15,23,42,.06);
+  --shadow-modal: 0 24px 64px rgba(15,23,42,.18);
+
+  /* Typography */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--color-text);
   background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Transitions */
+  --transition-fast:   120ms ease;
+  --transition:        180ms ease;
+  --transition-slow:   280ms ease;
 }
 
 body {
@@ -34,7 +98,9 @@ body {
 a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
+a:hover { color: var(--color-primary-hover); }
 
 button {
   cursor: pointer;
@@ -54,22 +120,31 @@ table {
 
 th, td {
   text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 th {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .03em;
-  color: var(--color-text-muted);
+  letter-spacing: .06em;
+  color: var(--color-text-subtle);
   background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-tr:hover td {
-  background: #f1f5f9;
+tbody tr {
+  transition: background var(--transition-fast);
+}
+tbody tr:hover td {
+  background: var(--color-primary-light);
+}
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
-.positive { color: var(--color-positive); }
-.negative { color: var(--color-negative); }
+.positive { color: var(--color-positive); font-weight: 600; }
+.negative { color: var(--color-negative); font-weight: 600; }
