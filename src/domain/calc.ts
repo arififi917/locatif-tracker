@@ -16,28 +16,32 @@ export function getTotalCRD(propertyId: string, data: AppData, referenceDate: st
   }, 0)
 }
 
-/**
- * Coût du crédit sur la période = intérêts + assurance uniquement.
- * N'inclut PAS le remboursement du capital (non une charge économique).
- */
 export function getCreditCostOnly(
   propertyId: string,
   data: AppData,
   period: PeriodFilter
 ): number {
-  const loans = data.loans.filter((l) => l.propertyId === propertyId)
-  return loans.reduce((sum, loan) => {
-    const rows = data.loanSchedules.filter(
-      (r) => r.loanId === loan.id && isWithinPeriod(r.date, period)
+  const fromSchedules = data.loans
+    .filter((l) => l.propertyId === propertyId)
+    .reduce((sum, loan) => {
+      const rows = data.loanSchedules.filter(
+        (r) => r.loanId === loan.id && isWithinPeriod(r.date, period)
+      )
+      return sum + rows.reduce((s, r) => s + r.interestPaid + (r.insurancePaid ?? 0), 0)
+    }, 0)
+
+  const fromExpenses = data.expenseEvents
+    .filter(
+      (e) =>
+        e.propertyId === propertyId &&
+        isWithinPeriod(e.date, period) &&
+        e.category === 'assurance_emprunteur'
     )
-    return sum + rows.reduce((s, r) => s + r.interestPaid + (r.insurancePaid ?? 0), 0)
-  }, 0)
+    .reduce((sum, e) => sum + e.amount, 0)
+
+  return fromSchedules + fromExpenses
 }
 
-/**
- * Mensualités complètes sur la période = capital + intérêts + assurance.
- * C'est ce qui sort réellement du compte bancaire.
- */
 export function getCreditMensualiteComplete(
   propertyId: string,
   data: AppData,
@@ -51,19 +55,30 @@ export function getCreditMensualiteComplete(
     if (rows.length > 0) {
       return sum + rows.reduce((s, r) => s + r.principalPaid + r.interestPaid + (r.insurancePaid ?? 0), 0)
     }
-    // Fallback : mensualité × nb mois si pas de tableau
+
     if (loan.monthlyPayment) {
-      const nbMois = getApproxMonths(period)
+      const nbMois = getFallbackMonthsForLoan(loan.id, data, period)
       return sum + loan.monthlyPayment * nbMois
     }
     return sum
   }, 0)
 }
 
-function getApproxMonths(period: PeriodFilter): number {
+function getFallbackMonthsForLoan(loanId: string, data: AppData, period: PeriodFilter): number {
+  const allLoanDates = data.loanSchedules
+    .filter((r) => r.loanId === loanId)
+    .map((r) => r.date)
+    .sort()
+
   if (period.mode === 'year') return 12
   if (period.mode === 'rolling_12m') return 12
-  return 12 // 'all' sans données : fallback 12
+  if (allLoanDates.length >= 2) {
+    const start = new Date(allLoanDates[0]).getTime()
+    const end = new Date(allLoanDates[allLoanDates.length - 1]).getTime()
+    const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30.4375)) + 1
+    return Math.max(months, 1)
+  }
+  return 12
 }
 
 export function getRealRents(
@@ -82,15 +97,15 @@ export function getTotalCharges(
   period: PeriodFilter
 ): number {
   return data.expenseEvents
-    .filter((e) => e.propertyId === propertyId && isWithinPeriod(e.date, period))
+    .filter(
+      (e) =>
+        e.propertyId === propertyId &&
+        isWithinPeriod(e.date, period) &&
+        e.category !== 'assurance_emprunteur'
+    )
     .reduce((sum, e) => sum + e.amount, 0)
 }
 
-/**
- * Calcule le nombre d'années couvertes par les données réelles (loyers + dépenses).
- * Utilisé pour annualiser les rendements en mode "tout".
- * Retourne 1 au minimum pour éviter la division par zéro.
- */
 export function getAnneesCouvertes(
   propertyId: string,
   data: AppData,
@@ -101,11 +116,14 @@ export function getAnneesCouvertes(
   const dates: string[] = [
     ...data.rentEvents.filter((r) => r.propertyId === propertyId).map((r) => r.date),
     ...data.expenseEvents.filter((e) => e.propertyId === propertyId).map((e) => e.date),
+    ...data.loans
+      .filter((l) => l.propertyId === propertyId)
+      .flatMap((loan) => data.loanSchedules.filter((r) => r.loanId === loan.id).map((r) => r.date)),
   ]
+
   if (dates.length === 0) return 1
   const sorted = dates.sort()
-  const diffMs =
-    new Date(sorted[sorted.length - 1]).getTime() - new Date(sorted[0]).getTime()
+  const diffMs = new Date(sorted[sorted.length - 1]).getTime() - new Date(sorted[0]).getTime()
   const years = diffMs / (1000 * 60 * 60 * 24 * 365.25)
   return Math.max(years, 1)
 }
@@ -134,19 +152,10 @@ export function computePropertyKPI(
   const plusValue = property.currentValue - acquisitionCost
   const equityDynamique = property.currentValue - totalCRD
 
-  // Rendements annualisés
-  const grossYield = acquisitionCost > 0
-    ? (realRents / anneesCouvertes) / acquisitionCost
-    : 0
-  const netYieldOperationnel = acquisitionCost > 0
-    ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost
-    : 0
-  const netYieldEconomique = acquisitionCost > 0
-    ? (cashflowEconomique / anneesCouvertes) / acquisitionCost
-    : 0
-  const equityDynamiqueYield = equityDynamique > 0
-    ? (cashflowEconomique / anneesCouvertes) / equityDynamique
-    : 0
+  const grossYield = acquisitionCost > 0 ? (realRents / anneesCouvertes) / acquisitionCost : 0
+  const netYieldOperationnel = acquisitionCost > 0 ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost : 0
+  const netYieldEconomique = acquisitionCost > 0 ? (cashflowEconomique / anneesCouvertes) / acquisitionCost : 0
+  const equityDynamiqueYield = equityDynamique > 0 ? (cashflowEconomique / anneesCouvertes) / equityDynamique : 0
   const tauxEffort = realRents > 0 ? creditMensualiteComplete / realRents : 0
 
   return {
@@ -211,11 +220,7 @@ export function computePortfolioKPI(
   const totalNetValue = totalCurrentValue - totalCRD
   const equityDynamique = totalNetValue
   const plusValue = sum('plusValue')
-
-  // Pour le portefeuille en mode 'all', on prend le max des années couvertes
-  const anneesCouvertes = period.mode === 'all'
-    ? Math.max(...kpis.map((k) => k.anneesCouvertes))
-    : 1
+  const anneesCouvertes = period.mode === 'all' ? Math.max(...kpis.map((k) => k.anneesCouvertes)) : 1
 
   return {
     acquisitionCost,

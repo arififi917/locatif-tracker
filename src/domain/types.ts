@@ -96,29 +96,25 @@ export type PeriodFilter = {
 }
 
 export type PropertyKPI = {
-  // Patrimoine
   acquisitionCost: number
   currentValue: number
   totalCRD: number
   netValue: number
   plusValue: number
   equityDynamique: number
-  // Flux période
   realRents: number
   totalCharges: number
-  creditCostOnly: number        // intérêts + assurance uniquement
-  creditMensualiteComplete: number  // capital + intérêts + assurance
-  cashflowOperationnel: number  // loyers − charges (ex "avant dette")
-  cashflowEconomique: number    // loyers − charges − intérêts/assurance
-  cashflowTresorerie: number    // loyers − charges − mensualité complète
-  // Rendements annualisés
+  creditCostOnly: number
+  creditMensualiteComplete: number
+  cashflowOperationnel: number
+  cashflowEconomique: number
+  cashflowTresorerie: number
   anneesCouvertes: number
   grossYield: number
   netYieldOperationnel: number
   netYieldEconomique: number
   equityDynamiqueYield: number
-  // Ratio
-  tauxEffort: number            // mensualités / loyers
+  tauxEffort: number
 }
 
 export type PortfolioKPI = PropertyKPI & {
@@ -131,6 +127,7 @@ export const EXPENSE_CATEGORIES = [
   'charges',
   'taxe_fonciere',
   'assurance',
+  'assurance_emprunteur',
   'travaux',
   'gestion',
   'divers',
