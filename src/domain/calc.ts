@@ -1,5 +1,16 @@
 import { type AppData, type PeriodFilter, type PropertyKPI, type PortfolioKPI } from './types'
-import { isWithinPeriod } from './period'
+import { isWithinPeriod, getPeriodBounds } from './period'
+
+/** Convertit une Date en string YYYY-MM-DD locale (pas UTC) */
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Retourne { start, end } en string YYYY-MM-DD pour filtrer les lignes du TA */
+function getPeriodDateStrings(period: PeriodFilter): { start: string; end: string } {
+  const { start, end } = getPeriodBounds(period)
+  return { start: toLocalDateStr(start), end: toLocalDateStr(end) }
+}
 
 export function getAcquisitionCost(p: AppData['properties'][0]): number {
   return p.purchasePrice + p.notaryFees + p.agencyFees + p.initialWorks
@@ -21,11 +32,13 @@ export function getCreditCostOnly(
   data: AppData,
   period: PeriodFilter
 ): number {
+  const { start, end } = getPeriodDateStrings(period)
+
   const fromSchedules = data.loans
     .filter((l) => l.propertyId === propertyId)
     .reduce((sum, loan) => {
       const rows = data.loanSchedules.filter(
-        (r) => r.loanId === loan.id && isWithinPeriod(r.date, period)
+        (r) => r.loanId === loan.id && r.date >= start && r.date <= end
       )
       return sum + rows.reduce((s, r) => s + r.interestPaid + (r.insurancePaid ?? 0), 0)
     }, 0)
@@ -47,34 +60,34 @@ export function getCreditMensualiteComplete(
   data: AppData,
   period: PeriodFilter
 ): number {
+  const { start, end } = getPeriodDateStrings(period)
   const loans = data.loans.filter((l) => l.propertyId === propertyId)
+
   return loans.reduce((sum, loan) => {
     const rows = data.loanSchedules.filter(
-      (r) => r.loanId === loan.id && isWithinPeriod(r.date, period)
+      (r) => r.loanId === loan.id && r.date >= start && r.date <= end
     )
     if (rows.length > 0) {
       return sum + rows.reduce((s, r) => s + r.principalPaid + r.interestPaid + (r.insurancePaid ?? 0), 0)
     }
-
+    // Fallback sans TA importé
     if (loan.monthlyPayment) {
-      const nbMois = getFallbackMonthsForLoan(loan.id, data, period)
+      const nbMois = getFallbackMonthsForLoan(loan, period)
       return sum + loan.monthlyPayment * nbMois
     }
     return sum
   }, 0)
 }
 
-function getFallbackMonthsForLoan(loanId: string, data: AppData, period: PeriodFilter): number {
-  const allLoanDates = data.loanSchedules
-    .filter((r) => r.loanId === loanId)
-    .map((r) => r.date)
-    .sort()
-
-  if (period.mode === 'year') return 12
-  if (period.mode === 'rolling_12m') return 12
-  if (allLoanDates.length >= 2) {
-    const start = new Date(allLoanDates[0]).getTime()
-    const end = new Date(allLoanDates[allLoanDates.length - 1]).getTime()
+function getFallbackMonthsForLoan(
+  loan: AppData['loans'][0],
+  period: PeriodFilter
+): number {
+  if (period.mode === 'year' || period.mode === 'rolling_12m') return 12
+  // mode 'all' : on estime la durée du prêt
+  if (loan.startDate && loan.endDate) {
+    const start = new Date(loan.startDate).getTime()
+    const end = new Date(loan.endDate).getTime()
     const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30.4375)) + 1
     return Math.max(months, 1)
   }

@@ -29,7 +29,7 @@ function LoanSchedulePanel({ loan }: { loan: Loan }) {
   if (rows.length === 0) {
     return (
       <tr>
-        <td colSpan={10} style={{ padding: '12px 20px', color: 'var(--color-text-muted)', fontStyle: 'italic', fontSize: 12 }}>
+        <td colSpan={11} style={{ padding: '12px 20px', color: 'var(--color-text-muted)', fontStyle: 'italic', fontSize: 12 }}>
           Aucune ligne dans le tableau d'amortissement.
         </td>
       </tr>
@@ -38,7 +38,7 @@ function LoanSchedulePanel({ loan }: { loan: Loan }) {
 
   return (
     <tr>
-      <td colSpan={10} style={{ padding: 0, background: 'var(--bg-surface-2)' }}>
+      <td colSpan={11} style={{ padding: 0, background: 'var(--bg-surface-2)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
             <thead>
@@ -68,7 +68,7 @@ function LoanSchedulePanel({ loan }: { loan: Loan }) {
             <tfoot>
               <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-surface-3)' }}>
                 <td style={{ padding: '8px 12px', fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>
-                  {rows.length} lignes · pages {page + 1}/{totalPages}
+                  {rows.length} lignes · page {page + 1}/{totalPages}
                 </td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(totalPayment)}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--color-info)' }}>{formatCurrency(totalCapital)}</td>
@@ -152,7 +152,7 @@ export function LoansTab({ propertyId }: Props) {
                 <th></th>
                 <th>Nom</th>
                 <th>Banque</th>
-                <th style={{ textAlign: 'right' }}>Capital</th>
+                <th style={{ textAlign: 'right' }}>Nominal</th>
                 <th style={{ textAlign: 'right' }}>Taux</th>
                 <th style={{ textAlign: 'right' }}>Mensualité</th>
                 <th>Début</th>
