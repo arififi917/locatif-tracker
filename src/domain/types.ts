@@ -42,8 +42,15 @@ export type RentEvent = {
   id: string
   propertyId: string
   date: string
+  /** Montant total encaissé (loyer HC + charges perçues - frais gestion) */
   amount: number
   label: string
+  /** Loyer hors charges */
+  rentHC?: number
+  /** Charges perçues (provisions sur charges locataires) */
+  chargesReceived?: number
+  /** Frais de gestion déduits */
+  managementFees?: number
 }
 
 export type ExpenseEvent = {
@@ -113,8 +120,8 @@ export type PortfolioKPI = PropertyKPI & {
   totalEquity: number
 }
 
+/** Catégories de dépenses — le crédit est géré via l'onglet Prêts */
 export const EXPENSE_CATEGORIES = [
-  'credit',
   'charges',
   'taxe_fonciere',
   'assurance',

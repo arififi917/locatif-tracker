@@ -4,7 +4,7 @@ import { usePeriodFilter } from '../../hooks/usePeriodFilter'
 import { isWithinPeriod } from '../../domain/period'
 import { ExpenseEventForm } from '../../components/forms/ExpenseEventForm'
 import { formatCurrency, formatDate } from '../../utils/format'
-import { EXPENSE_CATEGORIES } from '../../domain/types'
+import { EXPENSE_CATEGORIES, type ExpenseEvent } from '../../domain/types'
 
 type Props = { propertyId: string }
 
@@ -12,13 +12,16 @@ export function ExpensesTab({ propertyId }: Props) {
   const { data, deleteExpenseEvent } = useAppData()
   const { period } = usePeriodFilter()
   const [showAdd, setShowAdd] = useState(false)
+  const [duplicate, setDuplicate] = useState<ExpenseEvent | null>(null)
 
   const expenses = data.expenseEvents
     .filter((e) => e.propertyId === propertyId && isWithinPeriod(e.date, period))
     .sort((a, b) => b.date.localeCompare(a.date))
 
   const totalAll = expenses.reduce((s, e) => s + e.amount, 0)
-  const totalNonRecoverable = expenses.filter((e) => !e.isRecoverable && e.category !== 'credit').reduce((s, e) => s + e.amount, 0)
+  const totalNonRecoverable = expenses
+    .filter((e) => !e.isRecoverable && e.category !== 'credit')
+    .reduce((s, e) => s + e.amount, 0)
 
   const byCategory = EXPENSE_CATEGORIES.map((cat) => ({
     cat,
@@ -46,7 +49,9 @@ export function ExpensesTab({ propertyId }: Props) {
       )}
 
       {expenses.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>Aucune dépense sur cette période.</div>
+        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>
+          Aucune dépense sur cette période.
+        </div>
       ) : (
         <div className="table-container">
           <table>
@@ -66,10 +71,29 @@ export function ExpensesTab({ propertyId }: Props) {
                   <td>{formatDate(e.date)}</td>
                   <td>{e.label || '—'}</td>
                   <td><span className="badge badge-gray">{e.category}</span></td>
-                  <td>{e.isRecoverable ? <span className="badge badge-green">Oui</span> : <span className="badge badge-gray">Non</span>}</td>
+                  <td>
+                    {e.isRecoverable
+                      ? <span className="badge badge-green">Oui</span>
+                      : <span className="badge badge-gray">Non</span>}
+                  </td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(e.amount)}</td>
                   <td>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteExpenseEvent(e.id)}>🗑</button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        title="Dupliquer"
+                        onClick={() => setDuplicate(e)}
+                      >
+                        ⧉
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        title="Supprimer"
+                        onClick={() => deleteExpenseEvent(e.id)}
+                      >
+                        🗑
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -78,7 +102,16 @@ export function ExpensesTab({ propertyId }: Props) {
         </div>
       )}
 
-      {showAdd && <ExpenseEventForm propertyId={propertyId} onClose={() => setShowAdd(false)} />}
+      {showAdd && (
+        <ExpenseEventForm propertyId={propertyId} onClose={() => setShowAdd(false)} />
+      )}
+      {duplicate && (
+        <ExpenseEventForm
+          propertyId={propertyId}
+          initial={{ ...duplicate, date: '' }} // date vide pour forcer la sélection
+          onClose={() => setDuplicate(null)}
+        />
+      )}
     </div>
   )
 }

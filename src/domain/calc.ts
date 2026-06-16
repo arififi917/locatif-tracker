@@ -14,7 +14,6 @@ export function getTotalCRD(propertyId: string, data: AppData, referenceDate: st
     if (scheduleRows.length > 0) {
       return sum + scheduleRows[0].remainingPrincipal
     }
-    // Fallback: use loan principal if no schedule
     return sum + loan.principal
   }, 0)
 }
@@ -24,7 +23,7 @@ export function getCreditCost(
   data: AppData,
   period: PeriodFilter
 ): number {
-  // Option 1: from ExpenseEvents with category 'credit'
+  // Option 1 : depuis les dépenses catégorie 'credit' (legacy, si présent)
   const fromExpenses = data.expenseEvents
     .filter(
       (e) =>
@@ -36,7 +35,7 @@ export function getCreditCost(
 
   if (fromExpenses > 0) return fromExpenses
 
-  // Option 2: from loan schedule (interest + insurance)
+  // Option 2 : depuis le tableau d'amortissement (intérêts + assurance)
   const loans = data.loans.filter((l) => l.propertyId === propertyId)
   return loans.reduce((sum, loan) => {
     const rows = data.loanSchedules.filter(

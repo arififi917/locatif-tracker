@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { useAppData } from '../../hooks/useAppData'
-import { EXPENSE_CATEGORIES } from '../../domain/types'
+import { EXPENSE_CATEGORIES, type ExpenseEvent } from '../../domain/types'
 import { Modal } from '../ui/Modal'
 
-type Props = { propertyId: string; onClose: () => void }
+type Props = {
+  propertyId: string
+  /** Si fourni : pré-remplit le formulaire (duplication) */
+  initial?: Partial<ExpenseEvent>
+  onClose: () => void
+}
 
-export function ExpenseEventForm({ propertyId, onClose }: Props) {
+export function ExpenseEventForm({ propertyId, initial, onClose }: Props) {
   const { addExpenseEvent } = useAppData()
-  const [date, setDate] = useState('')
-  const [amount, setAmount] = useState('')
-  const [label, setLabel] = useState('')
-  const [category, setCategory] = useState<string>(EXPENSE_CATEGORIES[1])
-  const [isRecoverable, setIsRecoverable] = useState(false)
+  const [date, setDate] = useState(initial?.date ?? '')
+  const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '')
+  const [label, setLabel] = useState(initial?.label ?? '')
+  const [category, setCategory] = useState<string>(initial?.category ?? EXPENSE_CATEGORIES[0])
+  const [isRecoverable, setIsRecoverable] = useState(initial?.isRecoverable ?? false)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,7 +32,7 @@ export function ExpenseEventForm({ propertyId, onClose }: Props) {
   }
 
   return (
-    <Modal title="Ajouter une dépense" onClose={onClose}>
+    <Modal title="Enregistrer une dépense" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="form-row">
           <div className="form-group">
