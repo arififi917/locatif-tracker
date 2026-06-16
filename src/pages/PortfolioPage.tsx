@@ -25,16 +25,18 @@ function PropertyRow({ property, onSelect }: { property: Property; onSelect: () 
       <td style={{ textAlign: 'right' }}>
         <span style={{ fontWeight: 700 }}>{formatCurrency(kpi.currentValue)}</span>
       </td>
-      <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>{formatCurrency(kpi.netValue)}</td>
-      <td style={{ textAlign: 'right' }}><AmountCell value={kpi.cashflowBeforeDebt} showSign /></td>
-      <td style={{ textAlign: 'right' }}><AmountCell value={kpi.cashflowAfterDebt} showSign /></td>
+      <td style={{ textAlign: 'right' }}>
+        <AmountCell value={kpi.plusValue} showSign />
+      </td>
+      <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>{formatCurrency(kpi.equityDynamique)}</td>
+      <td style={{ textAlign: 'right' }}><AmountCell value={kpi.cashflowOperationnel} showSign /></td>
+      <td style={{ textAlign: 'right' }}><AmountCell value={kpi.cashflowTresorerie} showSign /></td>
       <td style={{ textAlign: 'right' }}>
         <span style={{ fontWeight: 600, color: 'var(--color-info)' }}>{formatPercent(kpi.grossYield)}</span>
       </td>
-      <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>{formatPercent(kpi.netYieldBeforeDebt)}</td>
-      <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>{formatPercent(kpi.netYieldAfterDebt)}</td>
+      <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>{formatPercent(kpi.netYieldEconomique)}</td>
       <td style={{ textAlign: 'right' }}>
-        <span style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{formatPercent(kpi.equityYield)}</span>
+        <span style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{formatPercent(kpi.equityDynamiqueYield)}</span>
       </td>
       <td style={{ textAlign: 'right' }}>
         <span
@@ -63,7 +65,10 @@ export function PortfolioPage({ onSelectProperty }: Props) {
   const portfolio = usePortfolioKPI()
   const [showAdd, setShowAdd] = useState(false)
 
-  const periodLabel = period.mode === 'year' ? `${period.year}` : '12 derniers mois'
+  const periodLabel =
+    period.mode === 'year' ? `${period.year}`
+    : period.mode === 'rolling_12m' ? '12 derniers mois'
+    : 'Tout'
 
   return (
     <div>
@@ -71,7 +76,7 @@ export function PortfolioPage({ onSelectProperty }: Props) {
       <div className="page-header">
         <div className="page-header-left">
           <h2 className="page-title">Vue portefeuille</h2>
-          <p className="page-subtitle">Période&nbsp;: {periodLabel} · {data.properties.length} bien{data.properties.length > 1 ? 's' : ''}</p>
+          <p className="page-subtitle">Période : {periodLabel} · {data.properties.length} bien{data.properties.length > 1 ? 's' : ''}</p>
         </div>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}
@@ -84,38 +89,80 @@ export function PortfolioPage({ onSelectProperty }: Props) {
       {/* KPI Portfolio */}
       {data.properties.length > 0 && (
         <>
+          {/* Patrimoine */}
           <div className="section-header" style={{ marginBottom: 'var(--space-3)' }}>
-            <span className="section-title">Agrégats portefeuille</span>
+            <span className="section-title">Patrimoine</span>
           </div>
-          <div className="kpi-grid">
+          <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
             <KpiCard label="Valeur brute" value={formatCurrency(portfolio.totalCurrentValue)} accent="var(--kpi-accent-blue)" />
-            <KpiCard label="Valeur nette" value={formatCurrency(portfolio.totalNetValue)} accent="var(--kpi-accent-sky)" />
             <KpiCard label="CRD total" value={formatCurrency(portfolio.totalCRD)} accent="var(--kpi-accent-amber)" />
-            <KpiCard label="Loyers" value={formatCurrency(portfolio.realRents)}
-              positive={portfolio.realRents > 0} accent="var(--kpi-accent-emerald)" />
-            <KpiCard label="Charges" value={formatCurrency(portfolio.nonRecoverableCharges)} accent="var(--kpi-accent-rose)" />
-            <KpiCard label="Coût crédit" value={formatCurrency(portfolio.creditCost)} accent="var(--kpi-accent-amber)" />
+            <KpiCard label="Equity nette" value={formatCurrency(portfolio.totalNetValue)} accent="var(--kpi-accent-sky)" sub="Valeur − CRD" />
             <KpiCard
-              label="CF avant dette"
-              value={formatCurrency(portfolio.cashflowBeforeDebt)}
-              positive={portfolio.cashflowBeforeDebt > 0}
-              negative={portfolio.cashflowBeforeDebt < 0}
+              label="Plus-value latente"
+              value={formatCurrency(portfolio.plusValue)}
+              positive={portfolio.plusValue > 0}
+              negative={portfolio.plusValue < 0}
+            />
+          </div>
+
+          {/* Flux */}
+          <div className="section-header" style={{ marginBottom: 'var(--space-3)' }}>
+            <span className="section-title">Flux — {periodLabel}</span>
+          </div>
+          <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
+            <KpiCard label="Loyers" value={formatCurrency(portfolio.realRents)} positive={portfolio.realRents > 0} accent="var(--kpi-accent-emerald)" />
+            <KpiCard label="Charges" value={formatCurrency(portfolio.totalCharges)} accent="var(--kpi-accent-rose)" />
+            <KpiCard label="Coût crédit (int.+ass.)" value={formatCurrency(portfolio.creditCostOnly)} accent="var(--kpi-accent-amber)" />
+            <KpiCard label="Mensualités complètes" value={formatCurrency(portfolio.creditMensualiteComplete)} accent="var(--kpi-accent-amber)" />
+            <KpiCard
+              label="CF opérationnel"
+              value={formatCurrency(portfolio.cashflowOperationnel)}
+              positive={portfolio.cashflowOperationnel > 0}
+              negative={portfolio.cashflowOperationnel < 0}
+              sub="Loyers − charges"
             />
             <KpiCard
-              label="CF après dette"
-              value={formatCurrency(portfolio.cashflowAfterDebt)}
-              positive={portfolio.cashflowAfterDebt > 0}
-              negative={portfolio.cashflowAfterDebt < 0}
+              label="CF économique"
+              value={formatCurrency(portfolio.cashflowEconomique)}
+              positive={portfolio.cashflowEconomique > 0}
+              negative={portfolio.cashflowEconomique < 0}
+              sub="− int./assurance"
             />
-            <KpiCard label="Rdt brut" value={formatPercent(portfolio.grossYield)} accent="var(--kpi-accent-violet)" />
-            <KpiCard label="Rdt net av. dette" value={formatPercent(portfolio.netYieldBeforeDebt)} accent="var(--kpi-accent-sky)" />
-            <KpiCard label="Rdt net ap. dette" value={formatPercent(portfolio.netYieldAfterDebt)} accent="var(--kpi-accent-sky)" />
-            <KpiCard label="Rdt fonds propres" value={formatPercent(portfolio.equityYield)} accent="var(--kpi-accent-emerald)" />
+            <KpiCard
+              label="CF trésorerie"
+              value={formatCurrency(portfolio.cashflowTresorerie)}
+              positive={portfolio.cashflowTresorerie > 0}
+              negative={portfolio.cashflowTresorerie < 0}
+              sub="− mensualité complète"
+            />
+            <KpiCard
+              label="Taux d'effort"
+              value={formatPercent(portfolio.tauxEffort)}
+              positive={portfolio.tauxEffort < 0.8}
+              negative={portfolio.tauxEffort >= 1}
+              sub="Mensualités / loyers"
+            />
+          </div>
+
+          {/* Rendements */}
+          <div className="section-header" style={{ marginBottom: 'var(--space-3)' }}>
+            <span className="section-title">Rendements annualisés</span>
+          </div>
+          <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
+            <KpiCard label="Rendement brut" value={formatPercent(portfolio.grossYield)} accent="var(--kpi-accent-violet)" sub="Loyers / coût acq." />
+            <KpiCard label="Rdt opérationnel" value={formatPercent(portfolio.netYieldOperationnel)} accent="var(--kpi-accent-sky)" sub="CF opérat. / coût acq." />
+            <KpiCard label="Rdt économique" value={formatPercent(portfolio.netYieldEconomique)} accent="var(--kpi-accent-sky)" sub="CF économ. / coût acq." />
+            <KpiCard
+              label="Rdt equity nette"
+              value={formatPercent(portfolio.equityDynamiqueYield)}
+              accent="var(--kpi-accent-emerald)"
+              sub="CF économ. / equity nette"
+            />
           </div>
         </>
       )}
 
-      {/* Biens */}
+      {/* Table biens */}
       {data.properties.length === 0 ? (
         <div className="card">
           <div className="empty-state">
@@ -129,9 +176,7 @@ export function PortfolioPage({ onSelectProperty }: Props) {
         <>
           <div className="section-header" style={{ marginBottom: 'var(--space-3)' }}>
             <span className="section-title">Détail des biens</span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-              Cliquez sur un bien pour accéder au détail
-            </span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Cliquez sur un bien pour accéder au détail</span>
           </div>
           <div className="table-container">
             <table>
@@ -139,13 +184,13 @@ export function PortfolioPage({ onSelectProperty }: Props) {
                 <tr>
                   <th>Bien</th>
                   <th style={{ textAlign: 'right' }}>Valeur brute</th>
-                  <th style={{ textAlign: 'right' }}>Valeur nette</th>
-                  <th style={{ textAlign: 'right' }}>CF av. dette</th>
-                  <th style={{ textAlign: 'right' }}>CF ap. dette</th>
+                  <th style={{ textAlign: 'right' }}>Plus-value</th>
+                  <th style={{ textAlign: 'right' }}>Equity nette</th>
+                  <th style={{ textAlign: 'right' }}>CF opérat.</th>
+                  <th style={{ textAlign: 'right' }}>CF tréso.</th>
                   <th style={{ textAlign: 'right' }}>Rdt brut</th>
-                  <th style={{ textAlign: 'right' }}>Rdt net av.</th>
-                  <th style={{ textAlign: 'right' }}>Rdt net ap.</th>
-                  <th style={{ textAlign: 'right' }}>Rdt FP</th>
+                  <th style={{ textAlign: 'right' }}>Rdt économ.</th>
+                  <th style={{ textAlign: 'right' }}>Rdt equity</th>
                   <th></th>
                 </tr>
               </thead>

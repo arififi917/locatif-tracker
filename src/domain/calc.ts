@@ -11,31 +11,20 @@ export function getTotalCRD(propertyId: string, data: AppData, referenceDate: st
     const scheduleRows = data.loanSchedules
       .filter((r) => r.loanId === loan.id && r.date <= referenceDate)
       .sort((a, b) => b.date.localeCompare(a.date))
-    if (scheduleRows.length > 0) {
-      return sum + scheduleRows[0].remainingPrincipal
-    }
+    if (scheduleRows.length > 0) return sum + scheduleRows[0].remainingPrincipal
     return sum + loan.principal
   }, 0)
 }
 
-export function getCreditCost(
+/**
+ * Coût du crédit sur la période = intérêts + assurance uniquement.
+ * N'inclut PAS le remboursement du capital (non une charge économique).
+ */
+export function getCreditCostOnly(
   propertyId: string,
   data: AppData,
   period: PeriodFilter
 ): number {
-  // Option 1 : depuis les dépenses catégorie 'credit' (legacy, si présent)
-  const fromExpenses = data.expenseEvents
-    .filter(
-      (e) =>
-        e.propertyId === propertyId &&
-        e.category === 'credit' &&
-        isWithinPeriod(e.date, period)
-    )
-    .reduce((sum, e) => sum + e.amount, 0)
-
-  if (fromExpenses > 0) return fromExpenses
-
-  // Option 2 : depuis le tableau d'amortissement (intérêts + assurance)
   const loans = data.loans.filter((l) => l.propertyId === propertyId)
   return loans.reduce((sum, loan) => {
     const rows = data.loanSchedules.filter(
@@ -43,6 +32,38 @@ export function getCreditCost(
     )
     return sum + rows.reduce((s, r) => s + r.interestPaid + (r.insurancePaid ?? 0), 0)
   }, 0)
+}
+
+/**
+ * Mensualités complètes sur la période = capital + intérêts + assurance.
+ * C'est ce qui sort réellement du compte bancaire.
+ */
+export function getCreditMensualiteComplete(
+  propertyId: string,
+  data: AppData,
+  period: PeriodFilter
+): number {
+  const loans = data.loans.filter((l) => l.propertyId === propertyId)
+  return loans.reduce((sum, loan) => {
+    const rows = data.loanSchedules.filter(
+      (r) => r.loanId === loan.id && isWithinPeriod(r.date, period)
+    )
+    if (rows.length > 0) {
+      return sum + rows.reduce((s, r) => s + r.principalPaid + r.interestPaid + (r.insurancePaid ?? 0), 0)
+    }
+    // Fallback : mensualité × nb mois si pas de tableau
+    if (loan.monthlyPayment) {
+      const nbMois = getApproxMonths(period)
+      return sum + loan.monthlyPayment * nbMois
+    }
+    return sum
+  }, 0)
+}
+
+function getApproxMonths(period: PeriodFilter): number {
+  if (period.mode === 'year') return 12
+  if (period.mode === 'rolling_12m') return 12
+  return 12 // 'all' sans données : fallback 12
 }
 
 export function getRealRents(
@@ -55,20 +76,38 @@ export function getRealRents(
     .reduce((sum, r) => sum + r.amount, 0)
 }
 
-export function getNonRecoverableCharges(
+export function getTotalCharges(
   propertyId: string,
   data: AppData,
   period: PeriodFilter
 ): number {
   return data.expenseEvents
-    .filter(
-      (e) =>
-        e.propertyId === propertyId &&
-        isWithinPeriod(e.date, period) &&
-        !e.isRecoverable &&
-        e.category !== 'credit'
-    )
+    .filter((e) => e.propertyId === propertyId && isWithinPeriod(e.date, period))
     .reduce((sum, e) => sum + e.amount, 0)
+}
+
+/**
+ * Calcule le nombre d'années couvertes par les données réelles (loyers + dépenses).
+ * Utilisé pour annualiser les rendements en mode "tout".
+ * Retourne 1 au minimum pour éviter la division par zéro.
+ */
+export function getAnneesCouvertes(
+  propertyId: string,
+  data: AppData,
+  period: PeriodFilter
+): number {
+  if (period.mode === 'year' || period.mode === 'rolling_12m') return 1
+
+  const dates: string[] = [
+    ...data.rentEvents.filter((r) => r.propertyId === propertyId).map((r) => r.date),
+    ...data.expenseEvents.filter((e) => e.propertyId === propertyId).map((e) => e.date),
+  ]
+  if (dates.length === 0) return 1
+  const sorted = dates.sort()
+  const diffMs =
+    new Date(sorted[sorted.length - 1]).getTime() - new Date(sorted[0]).getTime()
+  const years = diffMs / (1000 * 60 * 60 * 24 * 365.25)
+  return Math.max(years, 1)
 }
 
 export function computePropertyKPI(
@@ -83,31 +122,53 @@ export function computePropertyKPI(
   const acquisitionCost = getAcquisitionCost(property)
   const totalCRD = getTotalCRD(propertyId, data, referenceDate)
   const realRents = getRealRents(propertyId, data, period)
-  const nonRecoverableCharges = getNonRecoverableCharges(propertyId, data, period)
-  const creditCost = getCreditCost(propertyId, data, period)
+  const totalCharges = getTotalCharges(propertyId, data, period)
+  const creditCostOnly = getCreditCostOnly(propertyId, data, period)
+  const creditMensualiteComplete = getCreditMensualiteComplete(propertyId, data, period)
+  const anneesCouvertes = getAnneesCouvertes(propertyId, data, period)
 
-  const cashflowBeforeDebt = realRents - nonRecoverableCharges
-  const cashflowAfterDebt = cashflowBeforeDebt - creditCost
+  const cashflowOperationnel = realRents - totalCharges
+  const cashflowEconomique = cashflowOperationnel - creditCostOnly
+  const cashflowTresorerie = cashflowOperationnel - creditMensualiteComplete
 
-  const grossYield = acquisitionCost > 0 ? realRents / acquisitionCost : 0
-  const netYieldBeforeDebt = acquisitionCost > 0 ? cashflowBeforeDebt / acquisitionCost : 0
-  const netYieldAfterDebt = acquisitionCost > 0 ? cashflowAfterDebt / acquisitionCost : 0
-  const equityYield = property.equity > 0 ? cashflowAfterDebt / property.equity : 0
+  const plusValue = property.currentValue - acquisitionCost
+  const equityDynamique = property.currentValue - totalCRD
+
+  // Rendements annualisés
+  const grossYield = acquisitionCost > 0
+    ? (realRents / anneesCouvertes) / acquisitionCost
+    : 0
+  const netYieldOperationnel = acquisitionCost > 0
+    ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost
+    : 0
+  const netYieldEconomique = acquisitionCost > 0
+    ? (cashflowEconomique / anneesCouvertes) / acquisitionCost
+    : 0
+  const equityDynamiqueYield = equityDynamique > 0
+    ? (cashflowEconomique / anneesCouvertes) / equityDynamique
+    : 0
+  const tauxEffort = realRents > 0 ? creditMensualiteComplete / realRents : 0
 
   return {
     acquisitionCost,
     currentValue: property.currentValue,
     totalCRD,
     netValue: property.currentValue - totalCRD,
+    plusValue,
+    equityDynamique,
     realRents,
-    nonRecoverableCharges,
-    creditCost,
-    cashflowBeforeDebt,
-    cashflowAfterDebt,
+    totalCharges,
+    creditCostOnly,
+    creditMensualiteComplete,
+    cashflowOperationnel,
+    cashflowEconomique,
+    cashflowTresorerie,
+    anneesCouvertes,
     grossYield,
-    netYieldBeforeDebt,
-    netYieldAfterDebt,
-    equityYield,
+    netYieldOperationnel,
+    netYieldEconomique,
+    equityDynamiqueYield,
+    tauxEffort,
   }
 }
 
@@ -116,59 +177,66 @@ export function computePortfolioKPI(
   period: PeriodFilter,
   referenceDate: string
 ): PortfolioKPI {
-  if (data.properties.length === 0) {
-    return {
-      acquisitionCost: 0,
-      currentValue: 0,
-      totalCRD: 0,
-      netValue: 0,
-      realRents: 0,
-      nonRecoverableCharges: 0,
-      creditCost: 0,
-      cashflowBeforeDebt: 0,
-      cashflowAfterDebt: 0,
-      grossYield: 0,
-      netYieldBeforeDebt: 0,
-      netYieldAfterDebt: 0,
-      equityYield: 0,
-      totalCurrentValue: 0,
-      totalNetValue: 0,
-      totalEquity: 0,
-    }
+  const empty: PortfolioKPI = {
+    acquisitionCost: 0, currentValue: 0, totalCRD: 0, netValue: 0,
+    plusValue: 0, equityDynamique: 0,
+    realRents: 0, totalCharges: 0,
+    creditCostOnly: 0, creditMensualiteComplete: 0,
+    cashflowOperationnel: 0, cashflowEconomique: 0, cashflowTresorerie: 0,
+    anneesCouvertes: 1,
+    grossYield: 0, netYieldOperationnel: 0, netYieldEconomique: 0,
+    equityDynamiqueYield: 0, tauxEffort: 0,
+    totalCurrentValue: 0, totalNetValue: 0, totalEquity: 0,
   }
+  if (data.properties.length === 0) return empty
 
   const kpis = data.properties.map((p) =>
     computePropertyKPI(p.id, data, period, referenceDate)
   )
 
-  const sum = <K extends keyof PropertyKPI>(key: K): number =>
+  const sum = <K extends keyof import('./types').PropertyKPI>(key: K): number =>
     kpis.reduce((s, k) => s + (k[key] as number), 0)
 
   const acquisitionCost = sum('acquisitionCost')
   const realRents = sum('realRents')
-  const nonRecoverableCharges = sum('nonRecoverableCharges')
-  const creditCost = sum('creditCost')
-  const cashflowBeforeDebt = realRents - nonRecoverableCharges
-  const cashflowAfterDebt = cashflowBeforeDebt - creditCost
+  const totalCharges = sum('totalCharges')
+  const creditCostOnly = sum('creditCostOnly')
+  const creditMensualiteComplete = sum('creditMensualiteComplete')
+  const cashflowOperationnel = realRents - totalCharges
+  const cashflowEconomique = cashflowOperationnel - creditCostOnly
+  const cashflowTresorerie = cashflowOperationnel - creditMensualiteComplete
   const totalEquity = data.properties.reduce((s, p) => s + p.equity, 0)
   const totalCurrentValue = sum('currentValue')
   const totalCRD = sum('totalCRD')
   const totalNetValue = totalCurrentValue - totalCRD
+  const equityDynamique = totalNetValue
+  const plusValue = sum('plusValue')
+
+  // Pour le portefeuille en mode 'all', on prend le max des années couvertes
+  const anneesCouvertes = period.mode === 'all'
+    ? Math.max(...kpis.map((k) => k.anneesCouvertes))
+    : 1
 
   return {
     acquisitionCost,
     currentValue: totalCurrentValue,
     totalCRD,
     netValue: totalNetValue,
+    plusValue,
+    equityDynamique,
     realRents,
-    nonRecoverableCharges,
-    creditCost,
-    cashflowBeforeDebt,
-    cashflowAfterDebt,
-    grossYield: acquisitionCost > 0 ? realRents / acquisitionCost : 0,
-    netYieldBeforeDebt: acquisitionCost > 0 ? cashflowBeforeDebt / acquisitionCost : 0,
-    netYieldAfterDebt: acquisitionCost > 0 ? cashflowAfterDebt / acquisitionCost : 0,
-    equityYield: totalEquity > 0 ? cashflowAfterDebt / totalEquity : 0,
+    totalCharges,
+    creditCostOnly,
+    creditMensualiteComplete,
+    cashflowOperationnel,
+    cashflowEconomique,
+    cashflowTresorerie,
+    anneesCouvertes,
+    grossYield: acquisitionCost > 0 ? (realRents / anneesCouvertes) / acquisitionCost : 0,
+    netYieldOperationnel: acquisitionCost > 0 ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost : 0,
+    netYieldEconomique: acquisitionCost > 0 ? (cashflowEconomique / anneesCouvertes) / acquisitionCost : 0,
+    equityDynamiqueYield: equityDynamique > 0 ? (cashflowEconomique / anneesCouvertes) / equityDynamique : 0,
+    tauxEffort: realRents > 0 ? creditMensualiteComplete / realRents : 0,
     totalCurrentValue,
     totalNetValue,
     totalEquity,

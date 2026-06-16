@@ -17,34 +17,48 @@ export function SynthesisTab({ propertyId }: Props) {
   const property = data.properties.find((p) => p.id === propertyId)!
   const acqCost = getAcquisitionCost(property)
 
-  const periodLabel = period.mode === 'year' ? period.year?.toString() : '12 derniers mois'
+  const periodLabel = period.mode === 'year'
+    ? period.year?.toString()
+    : period.mode === 'rolling_12m'
+    ? '12 derniers mois'
+    : 'Tout'
+
+  const annLabel = kpi.anneesCouvertes !== 1
+    ? ` (annualisé sur ${kpi.anneesCouvertes.toFixed(1)} ans)`
+    : ''
 
   const chartData = [
-    { name: 'Valeur brute', value: kpi.currentValue, color: 'var(--kpi-accent-blue)' },
-    { name: 'Valeur nette', value: kpi.netValue, color: 'var(--kpi-accent-sky)' },
     { name: 'Loyers', value: kpi.realRents, color: 'var(--kpi-accent-emerald)' },
-    { name: 'Charges', value: kpi.nonRecoverableCharges, color: 'var(--kpi-accent-rose)' },
-    { name: 'CF ap. dette', value: kpi.cashflowAfterDebt, color: kpi.cashflowAfterDebt >= 0 ? '#059669' : '#dc2626' },
+    { name: 'Charges', value: kpi.totalCharges, color: 'var(--kpi-accent-rose)' },
+    { name: 'CF opérat.', value: kpi.cashflowOperationnel, color: kpi.cashflowOperationnel >= 0 ? 'var(--kpi-accent-sky)' : '#dc2626' },
+    { name: 'CF économ.', value: kpi.cashflowEconomique, color: kpi.cashflowEconomique >= 0 ? 'var(--kpi-accent-violet)' : '#dc2626' },
+    { name: 'CF tréso.', value: kpi.cashflowTresorerie, color: kpi.cashflowTresorerie >= 0 ? '#059669' : '#dc2626' },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
 
-      {/* Acquisition */}
+      {/* Acquisition & Patrimoine */}
       <section>
         <div className="section-header">
-          <span className="section-title">Acquisition</span>
+          <span className="section-title">Patrimoine</span>
         </div>
         <div className="kpi-grid">
           <KpiCard label="Coût acquisition" value={formatCurrency(acqCost)} accent="var(--kpi-accent-blue)" />
-          <KpiCard label="Fonds propres" value={formatCurrency(property.equity)} accent="var(--kpi-accent-violet)" />
           <KpiCard label="Valeur actuelle" value={formatCurrency(kpi.currentValue)} accent="var(--kpi-accent-sky)" />
+          <KpiCard
+            label="Plus-value latente"
+            value={formatCurrency(kpi.plusValue)}
+            positive={kpi.plusValue > 0}
+            negative={kpi.plusValue < 0}
+          />
           <KpiCard label="CRD total" value={formatCurrency(kpi.totalCRD)} accent="var(--kpi-accent-amber)" />
           <KpiCard
-            label="Valeur nette"
-            value={formatCurrency(kpi.netValue)}
-            positive={kpi.netValue > acqCost}
-            accent={kpi.netValue > acqCost ? 'var(--color-positive)' : undefined}
+            label="Equity nette"
+            value={formatCurrency(kpi.equityDynamique)}
+            positive={kpi.equityDynamique > 0}
+            negative={kpi.equityDynamique < 0}
+            sub="Valeur actuelle − CRD"
           />
         </div>
       </section>
@@ -52,35 +66,71 @@ export function SynthesisTab({ propertyId }: Props) {
       {/* KPI période */}
       <section>
         <div className="section-header">
-          <span className="section-title">KPI — Période {periodLabel}</span>
+          <span className="section-title">Flux — {periodLabel}{annLabel}</span>
         </div>
         <div className="kpi-grid">
-          <KpiCard label="Loyers" value={formatCurrency(kpi.realRents)} positive={kpi.realRents > 0} />
-          <KpiCard label="Charges non récup." value={formatCurrency(kpi.nonRecoverableCharges)} accent="var(--kpi-accent-rose)" />
-          <KpiCard label="Coût crédit" value={formatCurrency(kpi.creditCost)} accent="var(--kpi-accent-amber)" />
+          <KpiCard label="Loyers encaissés" value={formatCurrency(kpi.realRents)} positive={kpi.realRents > 0} />
+          <KpiCard label="Charges totales" value={formatCurrency(kpi.totalCharges)} accent="var(--kpi-accent-rose)" />
+          <KpiCard label="Coût crédit (int.+ass.)" value={formatCurrency(kpi.creditCostOnly)} accent="var(--kpi-accent-amber)" sub="Intérêts + assurance" />
           <KpiCard
-            label="CF avant dette"
-            value={formatCurrency(kpi.cashflowBeforeDebt)}
-            positive={kpi.cashflowBeforeDebt > 0}
-            negative={kpi.cashflowBeforeDebt < 0}
+            label="Mensualités complètes"
+            value={formatCurrency(kpi.creditMensualiteComplete)}
+            accent="var(--kpi-accent-amber)"
+            sub="Capital + int. + ass."
           />
           <KpiCard
-            label="CF après dette"
-            value={formatCurrency(kpi.cashflowAfterDebt)}
-            positive={kpi.cashflowAfterDebt > 0}
-            negative={kpi.cashflowAfterDebt < 0}
+            label="CF opérationnel"
+            value={formatCurrency(kpi.cashflowOperationnel)}
+            positive={kpi.cashflowOperationnel > 0}
+            negative={kpi.cashflowOperationnel < 0}
+            sub="Loyers − charges"
           />
-          <KpiCard label="Rdt brut" value={formatPercent(kpi.grossYield)} accent="var(--kpi-accent-violet)" />
-          <KpiCard label="Rdt net av. dette" value={formatPercent(kpi.netYieldBeforeDebt)} accent="var(--kpi-accent-sky)" />
-          <KpiCard label="Rdt net ap. dette" value={formatPercent(kpi.netYieldAfterDebt)} accent="var(--kpi-accent-sky)" />
-          <KpiCard label="Rdt fonds propres" value={formatPercent(kpi.equityYield)} accent="var(--kpi-accent-emerald)" />
+          <KpiCard
+            label="CF économique"
+            value={formatCurrency(kpi.cashflowEconomique)}
+            positive={kpi.cashflowEconomique > 0}
+            negative={kpi.cashflowEconomique < 0}
+            sub="− intérêts/assurance"
+          />
+          <KpiCard
+            label="CF trésorerie"
+            value={formatCurrency(kpi.cashflowTresorerie)}
+            positive={kpi.cashflowTresorerie > 0}
+            negative={kpi.cashflowTresorerie < 0}
+            sub="− mensualité complète"
+          />
+          <KpiCard
+            label="Taux d'effort"
+            value={formatPercent(kpi.tauxEffort)}
+            positive={kpi.tauxEffort < 0.8}
+            negative={kpi.tauxEffort >= 1}
+            sub="Mensualités / loyers"
+          />
+        </div>
+      </section>
+
+      {/* Rendements */}
+      <section>
+        <div className="section-header">
+          <span className="section-title">Rendements annualisés</span>
+        </div>
+        <div className="kpi-grid">
+          <KpiCard label="Rendement brut" value={formatPercent(kpi.grossYield)} accent="var(--kpi-accent-violet)" sub="Loyers / coût acq." />
+          <KpiCard label="Rdt opérationnel" value={formatPercent(kpi.netYieldOperationnel)} accent="var(--kpi-accent-sky)" sub="CF opérat. / coût acq." />
+          <KpiCard label="Rdt économique" value={formatPercent(kpi.netYieldEconomique)} accent="var(--kpi-accent-sky)" sub="CF économ. / coût acq." />
+          <KpiCard
+            label="Rdt equity nette"
+            value={formatPercent(kpi.equityDynamiqueYield)}
+            accent="var(--kpi-accent-emerald)"
+            sub="CF économ. / equity nette"
+          />
         </div>
       </section>
 
       {/* Graphique */}
       <section>
         <div className="section-header">
-          <span className="section-title">Aperçu graphique</span>
+          <span className="section-title">Aperçu cashflows</span>
         </div>
         <div className="card" style={{ padding: '24px 12px 20px' }}>
           <ResponsiveContainer width="100%" height={280}>

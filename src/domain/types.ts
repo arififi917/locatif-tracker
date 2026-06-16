@@ -42,14 +42,11 @@ export type RentEvent = {
   id: string
   propertyId: string
   date: string
-  /** Montant total encaissé (loyer HC + charges perçues - frais gestion) */
+  /** Montant total encaissé */
   amount: number
   label: string
-  /** Loyer hors charges */
   rentHC?: number
-  /** Charges perçues (provisions sur charges locataires) */
   chargesReceived?: number
-  /** Frais de gestion déduits */
   managementFees?: number
 }
 
@@ -99,19 +96,29 @@ export type PeriodFilter = {
 }
 
 export type PropertyKPI = {
+  // Patrimoine
   acquisitionCost: number
   currentValue: number
   totalCRD: number
   netValue: number
+  plusValue: number
+  equityDynamique: number
+  // Flux période
   realRents: number
-  nonRecoverableCharges: number
-  creditCost: number
-  cashflowBeforeDebt: number
-  cashflowAfterDebt: number
+  totalCharges: number
+  creditCostOnly: number        // intérêts + assurance uniquement
+  creditMensualiteComplete: number  // capital + intérêts + assurance
+  cashflowOperationnel: number  // loyers − charges (ex "avant dette")
+  cashflowEconomique: number    // loyers − charges − intérêts/assurance
+  cashflowTresorerie: number    // loyers − charges − mensualité complète
+  // Rendements annualisés
+  anneesCouvertes: number
   grossYield: number
-  netYieldBeforeDebt: number
-  netYieldAfterDebt: number
-  equityYield: number
+  netYieldOperationnel: number
+  netYieldEconomique: number
+  equityDynamiqueYield: number
+  // Ratio
+  tauxEffort: number            // mensualités / loyers
 }
 
 export type PortfolioKPI = PropertyKPI & {
@@ -120,7 +127,6 @@ export type PortfolioKPI = PropertyKPI & {
   totalEquity: number
 }
 
-/** Catégories de dépenses — le crédit est géré via l'onglet Prêts */
 export const EXPENSE_CATEGORIES = [
   'charges',
   'taxe_fonciere',
