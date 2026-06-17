@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppData } from '../../hooks/useAppData'
-import { EXPENSE_CATEGORIES, type ExpenseEvent } from '../../domain/types'
+import { type ExpenseEvent } from '../../domain/types'
 import { Modal } from '../ui/Modal'
 
 type Props = {
@@ -15,8 +15,7 @@ export function ExpenseEventForm({ propertyId, initial, onClose }: Props) {
   const [date, setDate] = useState(initial?.date ?? '')
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '')
   const [label, setLabel] = useState(initial?.label ?? '')
-  const [category, setCategory] = useState<string>(initial?.category ?? EXPENSE_CATEGORIES[0])
-  const [isRecoverable, setIsRecoverable] = useState(initial?.isRecoverable ?? false)
+  const [category, setCategory] = useState<string>(initial?.category ?? '')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,7 +25,7 @@ export function ExpenseEventForm({ propertyId, initial, onClose }: Props) {
       amount: parseFloat(amount) || 0,
       label,
       category,
-      isRecoverable,
+      isRecoverable: false,
     })
     onClose()
   }
@@ -46,26 +45,19 @@ export function ExpenseEventForm({ propertyId, initial, onClose }: Props) {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Catégorie</label>
-            <select className="form-input" value={category} onChange={(e) => setCategory(e.target.value)}>
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <label className="form-label">Catégorie *</label>
+            <input
+              className="form-input"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="ex: Charge copropriété, Travaux…"
+              required
+            />
           </div>
           <div className="form-group">
             <label className="form-label">Libellé</label>
             <input className="form-input" value={label} onChange={(e) => setLabel(e.target.value)} />
           </div>
-        </div>
-        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <input
-            id="recoverable"
-            type="checkbox"
-            checked={isRecoverable}
-            onChange={(e) => setIsRecoverable(e.target.checked)}
-          />
-          <label htmlFor="recoverable" style={{ fontSize: 13 }}>Charge récupérable (refacturable au locataire)</label>
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Annuler</button>

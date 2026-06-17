@@ -35,6 +35,31 @@ function resolvePropertyId(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MAPPING CODES CATÉGORIE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CATEGORY_CODE_MAP: Record<string, string> = {
+  COPR: 'Charge copropriété',
+  ELEC: 'Électricité',
+  GAZ: 'Gaz',
+  EAU: 'Eau',
+  ASSU: 'Assurance PNO',
+  INTT: 'Internet',
+  TAXE: 'Taxe',
+  TRAV: 'Travaux',
+  GEST: 'Gestion',
+  TRAN: 'Transport',
+  CPTA: 'Comptabilité',
+  MOBL: 'Mobilier',
+  DVRS: 'Autres',
+}
+
+/** Résout un code court (ex: "COPR") ou passe la valeur telle quelle si inconnue. */
+function resolveCategory(raw: string): string {
+  return CATEGORY_CODE_MAP[raw.toUpperCase()] ?? raw
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PRÊTS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -249,7 +274,8 @@ export function parseExpenseCSV(
     const lineNum = idx + 2
     const date = raw['date']?.trim() ?? ''
     const rawPropertyId = raw['propertyId']?.trim() ?? ''
-    const category = raw['category']?.trim() ?? ''
+    const rawCategory = raw['category']?.trim() ?? ''
+    const category = resolveCategory(rawCategory)
     const rawAmount = raw['amount']?.trim().replace(',', '.') ?? ''
     const amount = parseFloat(rawAmount)
 
@@ -257,7 +283,7 @@ export function parseExpenseCSV(
       errors.push(`Ligne ${lineNum} : date invalide (attendu YYYY-MM-DD)`)
       return
     }
-    if (!category) {
+    if (!rawCategory) {
       errors.push(`Ligne ${lineNum} : category manquante`)
       return
     }

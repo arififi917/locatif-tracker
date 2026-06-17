@@ -5,7 +5,7 @@ import { isWithinPeriod } from '../../domain/period'
 import { ExpenseEventForm } from '../../components/forms/ExpenseEventForm'
 import { parseExpenseCSV } from '../../domain/csvParser'
 import { formatCurrency, formatDate } from '../../utils/format'
-import { EXPENSE_CATEGORIES, type ExpenseEvent } from '../../domain/types'
+import { type ExpenseEvent } from '../../domain/types'
 
 type Props = { propertyId: string }
 
@@ -22,14 +22,19 @@ export function ExpensesTab({ propertyId }: Props) {
     .sort((a, b) => b.date.localeCompare(a.date))
 
   const totalAll = expenses.reduce((s, e) => s + e.amount, 0)
-  const totalNonRecoverable = expenses
-    .filter((e) => !e.isRecoverable && e.category !== 'credit')
-    .reduce((s, e) => s + e.amount, 0)
 
-  const byCategory = EXPENSE_CATEGORIES.map((cat) => ({
-    cat,
-    total: expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0),
-  })).filter((x) => x.total > 0)
+  // Regroupement dynamique par catégorie
+  const byCategory = Object.entries(
+    expenses
+      .filter((e) => e.category !== 'credit')
+      .reduce<Record<string, number>>((acc, e) => {
+        acc[e.category] = (acc[e.category] ?? 0) + e.amount
+        return acc
+      }, {})
+  )
+    .map(([cat, total]) => ({ cat, total }))
+    .filter((x) => x.total > 0)
+    .sort((a, b) => b.total - a.total)
 
   function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -65,11 +70,6 @@ export function ExpensesTab({ propertyId }: Props) {
           }}>
             Total : {formatCurrency(totalAll)}
           </span>
-          {totalNonRecoverable > 0 && (
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-              dont non récupérables : {formatCurrency(totalNonRecoverable)}
-            </span>
-          )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <input
