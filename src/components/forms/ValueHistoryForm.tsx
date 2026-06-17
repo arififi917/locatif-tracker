@@ -56,8 +56,8 @@ export function ValueHistoryForm({ propertyId, entry, onClose }: Props) {
               className="form-input"
               type="number"
               min="0"
-              step="1000"
-              placeholder="ex : 280000"
+              step="1"
+              placeholder="ex : 355200"
               value={form.value}
               onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
               required
