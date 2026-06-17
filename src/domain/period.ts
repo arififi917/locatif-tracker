@@ -2,16 +2,20 @@ import { type PeriodFilter } from './types'
 import { startOfYear, endOfYear, subMonths, parseISO, isWithinInterval } from 'date-fns'
 
 export function getPeriodBounds(period: PeriodFilter): { start: Date; end: Date } {
+  const today = new Date()
+
   if (period.mode === 'all') {
-    return { start: new Date(0), end: new Date() }
+    return { start: new Date(0), end: today }
   }
   if (period.mode === 'year') {
-    const year = period.year ?? new Date().getFullYear()
+    const year = period.year ?? today.getFullYear()
     const base = new Date(year, 0, 1)
-    return { start: startOfYear(base), end: endOfYear(base) }
+    const end = endOfYear(base)
+    // Pour l'année en cours, on ne prend pas les échéances futures
+    return { start: startOfYear(base), end: year === today.getFullYear() ? today : end }
   }
   // rolling_12m
-  const ref = period.referenceDate ? parseISO(period.referenceDate) : new Date()
+  const ref = period.referenceDate ? parseISO(period.referenceDate) : today
   return { start: subMonths(ref, 12), end: ref }
 }
 
