@@ -10,7 +10,7 @@ import { type RentEvent } from '../../domain/types'
 type Props = { propertyId: string }
 
 export function RentsTab({ propertyId }: Props) {
-  const { data, deleteRentEvent, bulkAddRentEvents } = useAppData()
+  const { data, deleteRentEvent, addRentEvents } = useAppData()
   const { period } = usePeriodFilter()
   const [showAdd, setShowAdd] = useState(false)
   const [duplicate, setDuplicate] = useState<RentEvent | null>(null)
@@ -38,12 +38,11 @@ export function RentsTab({ propertyId }: Props) {
         setCsvErrors(errors)
         return
       }
-      bulkAddRentEvents(rows)
+      addRentEvents(rows)
       setCsvErrors([])
       alert(`${rows.length} loyer(s) importé(s) avec succès.`)
     }
     reader.readAsText(file)
-    // reset pour permettre re-sélection du même fichier
     e.target.value = ''
   }
 
