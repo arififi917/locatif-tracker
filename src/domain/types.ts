@@ -8,6 +8,7 @@ export type Property = {
   initialWorks: number
   equity: number
   currentValue: number
+  rentStartDate?: string
   createdAt: string
   updatedAt: string
 }
@@ -108,7 +109,6 @@ export type PropertyKPI = {
   creditCostOnly: number
   creditMensualiteComplete: number
   cashflowNet: number
-  // conservés pour PortfolioPage / rétrocompat
   cashflowOperationnel: number
   cashflowEconomique: number
   cashflowTresorerie: number
@@ -117,7 +117,6 @@ export type PropertyKPI = {
   netYield: number
   equityNetYield: number
   cashOnCash: number
-  // anciens — conservés pour rétrocompat PortfolioPage
   netYieldOperationnel: number
   netYieldEconomique: number
   equityDynamiqueYield: number

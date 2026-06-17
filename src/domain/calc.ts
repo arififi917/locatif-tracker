@@ -1,29 +1,53 @@
 import { type AppData, type PeriodFilter, type PropertyKPI, type PortfolioKPI } from './types'
 import { isWithinPeriod, getPeriodBounds } from './period'
 
-/** Convertit une Date en string YYYY-MM-DD locale (pas UTC) */
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Retourne { start, end } en string YYYY-MM-DD pour filtrer les lignes du TA */
 function getPeriodDateStrings(period: PeriodFilter): { start: string; end: string } {
   const { start, end } = getPeriodBounds(period)
   return { start: toLocalDateStr(start), end: toLocalDateStr(end) }
+}
+
+/**
+ * Retourne la borne de début effective pour les calculs de flux :
+ * max(début période, rentStartDate) si rentStartDate est défini.
+ */
+function getEffectiveStart(periodStart: string, rentStartDate?: string): string {
+  if (!rentStartDate) return periodStart
+  return periodStart < rentStartDate ? rentStartDate : periodStart
 }
 
 export function getAcquisitionCost(p: AppData['properties'][0]): number {
   return p.purchasePrice + p.notaryFees + p.agencyFees + p.initialWorks
 }
 
-/** Apport réel = coût acquisition − Σ nominaux des prêts liés */
+/**
+ * Apport réel = coût acquisition − Σ nominaux prêts
+ * + capital remboursé sur les échéances antérieures à rentStartDate
+ * (mensualités payées sans loyer en face, qui augmentent le vrai apport engagé)
+ */
 export function getApportReel(propertyId: string, data: AppData): number {
   const property = data.properties.find((p) => p.id === propertyId)!
   const acq = getAcquisitionCost(property)
   const totalPrincipal = data.loans
     .filter((l) => l.propertyId === propertyId)
     .reduce((s, l) => s + l.principal, 0)
-  return acq - totalPrincipal
+  const baseApport = acq - totalPrincipal
+
+  // Capital remboursé avant mise en location
+  if (!property.rentStartDate) return baseApport
+  const capitalAvantLocation = data.loans
+    .filter((l) => l.propertyId === propertyId)
+    .reduce((sum, loan) => {
+      const rows = data.loanSchedules.filter(
+        (r) => r.loanId === loan.id && r.date < property.rentStartDate!
+      )
+      return sum + rows.reduce((s, r) => s + r.principalPaid, 0)
+    }, 0)
+
+  return baseApport + capitalAvantLocation
 }
 
 export function getTotalCRD(propertyId: string, data: AppData, referenceDate: string): number {
@@ -42,7 +66,9 @@ export function getCreditCostOnly(
   data: AppData,
   period: PeriodFilter
 ): number {
-  const { start, end } = getPeriodDateStrings(period)
+  const property = data.properties.find((p) => p.id === propertyId)!
+  const { start: rawStart, end } = getPeriodDateStrings(period)
+  const start = getEffectiveStart(rawStart, property.rentStartDate)
 
   const fromSchedules = data.loans
     .filter((l) => l.propertyId === propertyId)
@@ -57,7 +83,7 @@ export function getCreditCostOnly(
     .filter(
       (e) =>
         e.propertyId === propertyId &&
-        isWithinPeriod(e.date, period) &&
+        e.date >= start && e.date <= end &&
         e.category === 'assurance_emprunteur'
     )
     .reduce((sum, e) => sum + e.amount, 0)
@@ -70,7 +96,9 @@ export function getCreditMensualiteComplete(
   data: AppData,
   period: PeriodFilter
 ): number {
-  const { start, end } = getPeriodDateStrings(period)
+  const property = data.properties.find((p) => p.id === propertyId)!
+  const { start: rawStart, end } = getPeriodDateStrings(period)
+  const start = getEffectiveStart(rawStart, property.rentStartDate)
   const loans = data.loans.filter((l) => l.propertyId === propertyId)
 
   return loans.reduce((sum, loan) => {
@@ -107,8 +135,14 @@ export function getRealRents(
   data: AppData,
   period: PeriodFilter
 ): number {
+  const property = data.properties.find((p) => p.id === propertyId)!
   return data.rentEvents
-    .filter((r) => r.propertyId === propertyId && isWithinPeriod(r.date, period))
+    .filter((r) => {
+      if (r.propertyId !== propertyId) return false
+      if (!isWithinPeriod(r.date, period)) return false
+      if (property.rentStartDate && r.date < property.rentStartDate) return false
+      return true
+    })
     .reduce((sum, r) => sum + r.amount, 0)
 }
 
@@ -117,13 +151,15 @@ export function getTotalCharges(
   data: AppData,
   period: PeriodFilter
 ): number {
+  const property = data.properties.find((p) => p.id === propertyId)!
   return data.expenseEvents
-    .filter(
-      (e) =>
-        e.propertyId === propertyId &&
-        isWithinPeriod(e.date, period) &&
-        e.category !== 'assurance_emprunteur'
-    )
+    .filter((e) => {
+      if (e.propertyId !== propertyId) return false
+      if (!isWithinPeriod(e.date, period)) return false
+      if (e.category === 'assurance_emprunteur') return false
+      if (property.rentStartDate && e.date < property.rentStartDate) return false
+      return true
+    })
     .reduce((sum, e) => sum + e.amount, 0)
 }
 
@@ -134,13 +170,24 @@ export function getAnneesCouvertes(
 ): number {
   if (period.mode === 'year' || period.mode === 'rolling_12m') return 1
 
+  const property = data.properties.find((p) => p.id === propertyId)!
+  const minDate = property.rentStartDate
+
   const dates: string[] = [
-    ...data.rentEvents.filter((r) => r.propertyId === propertyId).map((r) => r.date),
-    ...data.expenseEvents.filter((e) => e.propertyId === propertyId).map((e) => e.date),
+    ...data.rentEvents
+      .filter((r) => r.propertyId === propertyId)
+      .map((r) => r.date),
+    ...data.expenseEvents
+      .filter((e) => e.propertyId === propertyId && e.category !== 'assurance_emprunteur')
+      .map((e) => e.date),
     ...data.loans
       .filter((l) => l.propertyId === propertyId)
-      .flatMap((loan) => data.loanSchedules.filter((r) => r.loanId === loan.id).map((r) => r.date)),
-  ]
+      .flatMap((loan) =>
+        data.loanSchedules
+          .filter((r) => r.loanId === loan.id)
+          .map((r) => r.date)
+      ),
+  ].filter((d) => !minDate || d >= minDate)
 
   if (dates.length === 0) return 1
   const sorted = dates.sort()
@@ -170,7 +217,7 @@ export function computePropertyKPI(
   const cashflowOperationnel = realRents - totalCharges
   const cashflowEconomique = cashflowOperationnel - creditCostOnly
   const cashflowTresorerie = cashflowOperationnel - creditMensualiteComplete
-  const cashflowNet = cashflowTresorerie // CF net = loyers − charges − mensualités complètes
+  const cashflowNet = cashflowTresorerie
 
   const plusValue = property.currentValue - acquisitionCost
   const equityDynamique = property.currentValue - totalCRD
@@ -182,7 +229,6 @@ export function computePropertyKPI(
   const equityNetYield = equityDynamique > 0 ? cfNetAnnualise / equityDynamique : 0
   const cashOnCash = apportReel > 0 ? cfNetAnnualise / apportReel : 0
 
-  // rétrocompat
   const netYieldOperationnel = acquisitionCost > 0 ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost : 0
   const netYieldEconomique = acquisitionCost > 0 ? (cashflowEconomique / anneesCouvertes) / acquisitionCost : 0
   const equityDynamiqueYield = equityDynamique > 0 ? (cashflowEconomique / anneesCouvertes) / equityDynamique : 0

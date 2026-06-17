@@ -19,6 +19,7 @@ const DEFAULT: FormState = {
   initialWorks: 0,
   equity: 0,
   currentValue: 0,
+  rentStartDate: '',
 }
 
 export function PropertyForm({ property, onClose }: Props) {
@@ -36,10 +37,14 @@ export function PropertyForm({ property, onClose }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return
+    const payload = {
+      ...form,
+      rentStartDate: form.rentStartDate?.trim() || undefined,
+    }
     if (property) {
-      updateProperty({ ...property, ...form })
+      updateProperty({ ...property, ...payload })
     } else {
-      addProperty(form)
+      addProperty(payload)
     }
     onClose()
   }
@@ -88,6 +93,21 @@ export function PropertyForm({ property, onClose }: Props) {
           <div className="form-group">
             <label className="form-label">Valeur actuelle (€)</label>
             <input className="form-input" type="number" value={form.currentValue} onChange={(e) => setNum('currentValue', e.target.value)} />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group" style={{ maxWidth: '50%' }}>
+            <label className="form-label">Mise en location</label>
+            <input
+              className="form-input"
+              type="date"
+              value={form.rentStartDate ?? ''}
+              onChange={(e) => set('rentStartDate', e.target.value)}
+            />
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+              Si le bien était d'abord votre résidence principale, les calculs de rendement ne débuteront qu'à partir de cette date.
+            </span>
           </div>
         </div>
 
