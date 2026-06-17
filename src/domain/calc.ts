@@ -16,6 +16,16 @@ export function getAcquisitionCost(p: AppData['properties'][0]): number {
   return p.purchasePrice + p.notaryFees + p.agencyFees + p.initialWorks
 }
 
+/** Apport réel = coût acquisition − Σ nominaux des prêts liés */
+export function getApportReel(propertyId: string, data: AppData): number {
+  const property = data.properties.find((p) => p.id === propertyId)!
+  const acq = getAcquisitionCost(property)
+  const totalPrincipal = data.loans
+    .filter((l) => l.propertyId === propertyId)
+    .reduce((s, l) => s + l.principal, 0)
+  return acq - totalPrincipal
+}
+
 export function getTotalCRD(propertyId: string, data: AppData, referenceDate: string): number {
   const loans = data.loans.filter((l) => l.propertyId === propertyId)
   return loans.reduce((sum, loan) => {
@@ -70,7 +80,6 @@ export function getCreditMensualiteComplete(
     if (rows.length > 0) {
       return sum + rows.reduce((s, r) => s + r.principalPaid + r.interestPaid + (r.insurancePaid ?? 0), 0)
     }
-    // Fallback sans TA importé
     if (loan.monthlyPayment) {
       const nbMois = getFallbackMonthsForLoan(loan, period)
       return sum + loan.monthlyPayment * nbMois
@@ -84,7 +93,6 @@ function getFallbackMonthsForLoan(
   period: PeriodFilter
 ): number {
   if (period.mode === 'year' || period.mode === 'rolling_12m') return 12
-  // mode 'all' : on estime la durée du prêt
   if (loan.startDate && loan.endDate) {
     const start = new Date(loan.startDate).getTime()
     const end = new Date(loan.endDate).getTime()
@@ -151,6 +159,7 @@ export function computePropertyKPI(
   if (!property) throw new Error(`Property ${propertyId} not found`)
 
   const acquisitionCost = getAcquisitionCost(property)
+  const apportReel = getApportReel(propertyId, data)
   const totalCRD = getTotalCRD(propertyId, data, referenceDate)
   const realRents = getRealRents(propertyId, data, period)
   const totalCharges = getTotalCharges(propertyId, data, period)
@@ -161,11 +170,19 @@ export function computePropertyKPI(
   const cashflowOperationnel = realRents - totalCharges
   const cashflowEconomique = cashflowOperationnel - creditCostOnly
   const cashflowTresorerie = cashflowOperationnel - creditMensualiteComplete
+  const cashflowNet = cashflowTresorerie // CF net = loyers − charges − mensualités complètes
 
   const plusValue = property.currentValue - acquisitionCost
   const equityDynamique = property.currentValue - totalCRD
 
+  const cfNetAnnualise = cashflowNet / anneesCouvertes
+
   const grossYield = acquisitionCost > 0 ? (realRents / anneesCouvertes) / acquisitionCost : 0
+  const netYield = acquisitionCost > 0 ? cfNetAnnualise / acquisitionCost : 0
+  const equityNetYield = equityDynamique > 0 ? cfNetAnnualise / equityDynamique : 0
+  const cashOnCash = apportReel > 0 ? cfNetAnnualise / apportReel : 0
+
+  // rétrocompat
   const netYieldOperationnel = acquisitionCost > 0 ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost : 0
   const netYieldEconomique = acquisitionCost > 0 ? (cashflowEconomique / anneesCouvertes) / acquisitionCost : 0
   const equityDynamiqueYield = equityDynamique > 0 ? (cashflowEconomique / anneesCouvertes) / equityDynamique : 0
@@ -173,6 +190,7 @@ export function computePropertyKPI(
 
   return {
     acquisitionCost,
+    apportReel,
     currentValue: property.currentValue,
     totalCRD,
     netValue: property.currentValue - totalCRD,
@@ -182,11 +200,15 @@ export function computePropertyKPI(
     totalCharges,
     creditCostOnly,
     creditMensualiteComplete,
+    cashflowNet,
     cashflowOperationnel,
     cashflowEconomique,
     cashflowTresorerie,
     anneesCouvertes,
     grossYield,
+    netYield,
+    equityNetYield,
+    cashOnCash,
     netYieldOperationnel,
     netYieldEconomique,
     equityDynamiqueYield,
@@ -200,13 +222,14 @@ export function computePortfolioKPI(
   referenceDate: string
 ): PortfolioKPI {
   const empty: PortfolioKPI = {
-    acquisitionCost: 0, currentValue: 0, totalCRD: 0, netValue: 0,
+    acquisitionCost: 0, apportReel: 0, currentValue: 0, totalCRD: 0, netValue: 0,
     plusValue: 0, equityDynamique: 0,
     realRents: 0, totalCharges: 0,
     creditCostOnly: 0, creditMensualiteComplete: 0,
-    cashflowOperationnel: 0, cashflowEconomique: 0, cashflowTresorerie: 0,
+    cashflowNet: 0, cashflowOperationnel: 0, cashflowEconomique: 0, cashflowTresorerie: 0,
     anneesCouvertes: 1,
-    grossYield: 0, netYieldOperationnel: 0, netYieldEconomique: 0,
+    grossYield: 0, netYield: 0, equityNetYield: 0, cashOnCash: 0,
+    netYieldOperationnel: 0, netYieldEconomique: 0,
     equityDynamiqueYield: 0, tauxEffort: 0,
     totalCurrentValue: 0, totalNetValue: 0, totalEquity: 0,
   }
@@ -220,6 +243,7 @@ export function computePortfolioKPI(
     kpis.reduce((s, k) => s + (k[key] as number), 0)
 
   const acquisitionCost = sum('acquisitionCost')
+  const apportReel = sum('apportReel')
   const realRents = sum('realRents')
   const totalCharges = sum('totalCharges')
   const creditCostOnly = sum('creditCostOnly')
@@ -227,6 +251,7 @@ export function computePortfolioKPI(
   const cashflowOperationnel = realRents - totalCharges
   const cashflowEconomique = cashflowOperationnel - creditCostOnly
   const cashflowTresorerie = cashflowOperationnel - creditMensualiteComplete
+  const cashflowNet = cashflowTresorerie
   const totalEquity = data.properties.reduce((s, p) => s + p.equity, 0)
   const totalCurrentValue = sum('currentValue')
   const totalCRD = sum('totalCRD')
@@ -235,8 +260,11 @@ export function computePortfolioKPI(
   const plusValue = sum('plusValue')
   const anneesCouvertes = period.mode === 'all' ? Math.max(...kpis.map((k) => k.anneesCouvertes)) : 1
 
+  const cfNetAnnualise = cashflowNet / anneesCouvertes
+
   return {
     acquisitionCost,
+    apportReel,
     currentValue: totalCurrentValue,
     totalCRD,
     netValue: totalNetValue,
@@ -246,11 +274,15 @@ export function computePortfolioKPI(
     totalCharges,
     creditCostOnly,
     creditMensualiteComplete,
+    cashflowNet,
     cashflowOperationnel,
     cashflowEconomique,
     cashflowTresorerie,
     anneesCouvertes,
     grossYield: acquisitionCost > 0 ? (realRents / anneesCouvertes) / acquisitionCost : 0,
+    netYield: acquisitionCost > 0 ? cfNetAnnualise / acquisitionCost : 0,
+    equityNetYield: equityDynamique > 0 ? cfNetAnnualise / equityDynamique : 0,
+    cashOnCash: apportReel > 0 ? cfNetAnnualise / apportReel : 0,
     netYieldOperationnel: acquisitionCost > 0 ? (cashflowOperationnel / anneesCouvertes) / acquisitionCost : 0,
     netYieldEconomique: acquisitionCost > 0 ? (cashflowEconomique / anneesCouvertes) / acquisitionCost : 0,
     equityDynamiqueYield: equityDynamique > 0 ? (cashflowEconomique / anneesCouvertes) / equityDynamique : 0,

@@ -30,9 +30,8 @@ export function SynthesisTab({ propertyId }: Props) {
   const chartData = [
     { name: 'Loyers', value: kpi.realRents, color: 'var(--kpi-accent-emerald)' },
     { name: 'Charges', value: kpi.totalCharges, color: 'var(--kpi-accent-rose)' },
-    { name: 'CF opérat.', value: kpi.cashflowOperationnel, color: kpi.cashflowOperationnel >= 0 ? 'var(--kpi-accent-sky)' : '#dc2626' },
-    { name: 'CF économ.', value: kpi.cashflowEconomique, color: kpi.cashflowEconomique >= 0 ? 'var(--kpi-accent-violet)' : '#dc2626' },
-    { name: 'CF tréso.', value: kpi.cashflowTresorerie, color: kpi.cashflowTresorerie >= 0 ? '#059669' : '#dc2626' },
+    { name: 'Mensualités', value: kpi.creditMensualiteComplete, color: 'var(--kpi-accent-amber)' },
+    { name: 'CF net', value: kpi.cashflowNet, color: kpi.cashflowNet >= 0 ? '#059669' : '#dc2626' },
   ]
 
   return (
@@ -48,26 +47,33 @@ export function SynthesisTab({ propertyId }: Props) {
             label="Coût acquisition"
             value={formatCurrency(acqCost)}
             accent="var(--kpi-accent-blue)"
-            tooltip="Prix d'achat + frais de notaire + frais d'agence + travaux initiaux. C'est la base de calcul des rendements."
+            tooltip="Prix d'achat + frais de notaire + frais d'agence + travaux initiaux."
+          />
+          <KpiCard
+            label="Apport réel"
+            value={formatCurrency(kpi.apportReel)}
+            accent="var(--kpi-accent-blue)"
+            sub="Coût acq. − Σ nominaux prêts"
+            tooltip="Argent sorti de votre poche : coût d'acquisition total moins le cumul des nominaux des prêts. Base du calcul cash-on-cash."
           />
           <KpiCard
             label="Valeur actuelle"
             value={formatCurrency(kpi.currentValue)}
             accent="var(--kpi-accent-sky)"
-            tooltip="Valeur de marché estimée du bien aujourd'hui. À mettre à jour régulièrement pour refléter la réalité."
+            tooltip="Valeur de marché estimée du bien aujourd'hui."
           />
           <KpiCard
             label="Plus-value latente"
             value={formatCurrency(kpi.plusValue)}
             positive={kpi.plusValue > 0}
             negative={kpi.plusValue < 0}
-            tooltip="Valeur actuelle − coût d'acquisition. Gain potentiel non encore réalisé si le bien était vendu aujourd'hui."
+            tooltip="Valeur actuelle − coût d'acquisition."
           />
           <KpiCard
             label="CRD total"
             value={formatCurrency(kpi.totalCRD)}
             accent="var(--kpi-accent-amber)"
-            tooltip="Capital Restant Dû : somme des montants encore à rembourser sur tous les prêts liés à ce bien à la date de référence."
+            tooltip="Capital Restant Dû à la date de référence."
           />
           <KpiCard
             label="Equity nette"
@@ -75,7 +81,7 @@ export function SynthesisTab({ propertyId }: Props) {
             positive={kpi.equityDynamique > 0}
             negative={kpi.equityDynamique < 0}
             sub="Valeur actuelle − CRD"
-            tooltip="Votre part réelle du bien : valeur actuelle moins le capital restant dû. Évolue au fil des remboursements et de la revalorisation."
+            tooltip="Votre part réelle du bien : valeur actuelle moins le capital restant dû."
           />
         </div>
       </section>
@@ -90,51 +96,28 @@ export function SynthesisTab({ propertyId }: Props) {
             label="Loyers encaissés"
             value={formatCurrency(kpi.realRents)}
             positive={kpi.realRents > 0}
-            tooltip="Total des loyers réellement encaissés sur la période sélectionnée (charges locataires incluses si saisies en montant global)."
+            tooltip="Total des loyers réellement encaissés sur la période."
           />
           <KpiCard
             label="Charges totales"
             value={formatCurrency(kpi.totalCharges)}
             accent="var(--kpi-accent-rose)"
-            tooltip="Toutes les dépenses liées au bien sur la période : taxe foncière, assurance PNO, travaux, frais de gestion, etc. L'assurance emprunteur est exclue (comptée dans le coût du crédit)."
-          />
-          <KpiCard
-            label="Coût crédit (int.+ass.)"
-            value={formatCurrency(kpi.creditCostOnly)}
-            accent="var(--kpi-accent-amber)"
-            sub="Intérêts + assurance"
-            tooltip="Partie du crédit qui est une vraie charge économique : intérêts bancaires + assurance emprunteur. N'inclut pas le remboursement du capital (qui est de l'épargne)."
+            tooltip="Toutes les dépenses liées au bien sur la période (hors assurance emprunteur comptée dans les mensualités)."
           />
           <KpiCard
             label="Mensualités complètes"
             value={formatCurrency(kpi.creditMensualiteComplete)}
             accent="var(--kpi-accent-amber)"
             sub="Capital + int. + ass."
-            tooltip="Total des sommes débitées sur votre compte bancaire pour le(s) crédit(s) sur la période : capital remboursé + intérêts + assurance emprunteur."
+            tooltip="Total des sommes débitées pour le(s) crédit(s) : capital remboursé + intérêts + assurance emprunteur."
           />
           <KpiCard
-            label="CF opérationnel"
-            value={formatCurrency(kpi.cashflowOperationnel)}
-            positive={kpi.cashflowOperationnel > 0}
-            negative={kpi.cashflowOperationnel < 0}
-            sub="Loyers − charges"
-            tooltip="Loyers encaissés moins toutes les charges (hors crédit). Mesure la rentabilité brute de l'exploitation avant prise en compte du financement."
-          />
-          <KpiCard
-            label="CF économique"
-            value={formatCurrency(kpi.cashflowEconomique)}
-            positive={kpi.cashflowEconomique > 0}
-            negative={kpi.cashflowEconomique < 0}
-            sub="− intérêts/assurance"
-            tooltip="CF opérationnel moins le coût économique du crédit (intérêts + assurance). Reflète la vraie rentabilité économique sans tenir compte du remboursement du capital."
-          />
-          <KpiCard
-            label="CF trésorerie"
-            value={formatCurrency(kpi.cashflowTresorerie)}
-            positive={kpi.cashflowTresorerie > 0}
-            negative={kpi.cashflowTresorerie < 0}
-            sub="− mensualité complète"
-            tooltip="Argent réellement disponible après toutes les sorties : loyers − charges − mensualité complète (capital + intérêts + assurance). C'est ce qui impacte directement votre compte courant."
+            label="CF net"
+            value={formatCurrency(kpi.cashflowNet)}
+            positive={kpi.cashflowNet > 0}
+            negative={kpi.cashflowNet < 0}
+            sub="Loyers − charges − mensualités"
+            tooltip="Argent réellement disponible après toutes les sorties. Positif = le bien s'autofinance."
           />
           <KpiCard
             label="Taux d'effort"
@@ -142,7 +125,7 @@ export function SynthesisTab({ propertyId }: Props) {
             positive={kpi.tauxEffort < 0.8}
             negative={kpi.tauxEffort >= 1}
             sub="Mensualités / loyers"
-            tooltip="Part des loyers absorbée par les mensualités de crédit. En dessous de 80% : sain. Au-dessus de 100% : les loyers ne couvrent pas les mensualités."
+            tooltip="Part des loyers absorbée par les mensualités. En dessous de 80% : sain. Au-dessus de 100% : les loyers ne couvrent pas les mensualités."
           />
         </div>
       </section>
@@ -158,28 +141,28 @@ export function SynthesisTab({ propertyId }: Props) {
             value={formatPercent(kpi.grossYield)}
             accent="var(--kpi-accent-violet)"
             sub="Loyers / coût acq."
-            tooltip="Loyers annuels bruts divisés par le coût total d'acquisition. Indicateur de premier niveau, avant déduction des charges et du crédit."
+            tooltip="Loyers annuels bruts divisés par le coût total d'acquisition. Indicateur de premier niveau, avant charges et crédit."
           />
           <KpiCard
-            label="Rdt opérationnel"
-            value={formatPercent(kpi.netYieldOperationnel)}
+            label="Rendement net"
+            value={formatPercent(kpi.netYield)}
             accent="var(--kpi-accent-sky)"
-            sub="CF opérat. / coût acq."
-            tooltip="Cashflow opérationnel annuel (loyers − charges) rapporté au coût d'acquisition. Mesure la rentabilité nette de charges, indépendamment du financement."
+            sub="CF net / coût acq."
+            tooltip="Cash-flow net annuel (loyers − charges − mensualités complètes) rapporté au coût d'acquisition. Rentabilité réelle après tout."
           />
           <KpiCard
-            label="Rdt économique"
-            value={formatPercent(kpi.netYieldEconomique)}
-            accent="var(--kpi-accent-sky)"
-            sub="CF économ. / coût acq."
-            tooltip="Cashflow économique annuel (loyers − charges − intérêts/assurance) rapporté au coût d'acquisition. Tient compte du coût réel du financement."
-          />
-          <KpiCard
-            label="Rdt equity nette"
-            value={formatPercent(kpi.equityDynamiqueYield)}
+            label="Rdt equity net"
+            value={formatPercent(kpi.equityNetYield)}
             accent="var(--kpi-accent-emerald)"
-            sub="CF économ. / equity nette"
-            tooltip="Cashflow économique annuel rapporté à votre equity nette actuelle (valeur − CRD). Mesure le rendement sur votre capital réellement engagé aujourd'hui."
+            sub="CF net / equity nette"
+            tooltip="CF net annuel rapporté à votre equity nette actuelle (valeur − CRD). Mesure le rendement sur votre capital patrimonial aujourd'hui."
+          />
+          <KpiCard
+            label="Cash-on-cash"
+            value={formatPercent(kpi.cashOnCash)}
+            accent="var(--kpi-accent-emerald)"
+            sub="CF net / apport réel"
+            tooltip="CF net annuel rapporté à votre apport réel (coût acq. − nominaux prêts). Ce que votre mise de départ rapporte vraiment — comparable à d'autres placements."
           />
         </div>
       </section>

@@ -97,6 +97,7 @@ export type PeriodFilter = {
 
 export type PropertyKPI = {
   acquisitionCost: number
+  apportReel: number
   currentValue: number
   totalCRD: number
   netValue: number
@@ -106,11 +107,17 @@ export type PropertyKPI = {
   totalCharges: number
   creditCostOnly: number
   creditMensualiteComplete: number
+  cashflowNet: number
+  // conservés pour PortfolioPage / rétrocompat
   cashflowOperationnel: number
   cashflowEconomique: number
   cashflowTresorerie: number
   anneesCouvertes: number
   grossYield: number
+  netYield: number
+  equityNetYield: number
+  cashOnCash: number
+  // anciens — conservés pour rétrocompat PortfolioPage
   netYieldOperationnel: number
   netYieldEconomique: number
   equityDynamiqueYield: number
