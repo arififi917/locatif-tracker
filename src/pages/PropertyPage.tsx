@@ -4,15 +4,17 @@ import { SynthesisTab } from './tabs/SynthesisTab'
 import { LoansTab } from './tabs/LoansTab'
 import { RentsTab } from './tabs/RentsTab'
 import { ExpensesTab } from './tabs/ExpensesTab'
+import { ValueHistoryTab } from './tabs/ValueHistoryTab'
 import { PropertyForm } from '../components/forms/PropertyForm'
 
-type Tab = 'synthesis' | 'loans' | 'rents' | 'expenses'
+type Tab = 'synthesis' | 'loans' | 'rents' | 'expenses' | 'value'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'synthesis', label: 'Synthèse', icon: '📊' },
   { id: 'loans', label: 'Prêts', icon: '🏦' },
   { id: 'rents', label: 'Loyers', icon: '💰' },
   { id: 'expenses', label: 'Dépenses', icon: '📋' },
+  { id: 'value', label: 'Valeur', icon: '📈' },
 ]
 
 type Props = { propertyId: string; onBack: () => void }
@@ -41,7 +43,6 @@ export function PropertyPage({ propertyId, onBack }: Props) {
 
   return (
     <div>
-      {/* Property header */}
       <div className="page-header">
         <div className="page-header-left">
           <h2 className="page-title">{property.name}</h2>
@@ -63,7 +64,6 @@ export function PropertyPage({ propertyId, onBack }: Props) {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="tab-bar">
         {TABS.map((t) => (
           <button
@@ -80,6 +80,7 @@ export function PropertyPage({ propertyId, onBack }: Props) {
       {activeTab === 'loans' && <LoansTab propertyId={propertyId} />}
       {activeTab === 'rents' && <RentsTab propertyId={propertyId} />}
       {activeTab === 'expenses' && <ExpensesTab propertyId={propertyId} />}
+      {activeTab === 'value' && <ValueHistoryTab propertyId={propertyId} />}
 
       {showEdit && <PropertyForm property={property} onClose={() => setShowEdit(false)} />}
     </div>

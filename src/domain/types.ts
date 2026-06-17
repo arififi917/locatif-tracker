@@ -61,6 +61,14 @@ export type ExpenseEvent = {
   isRecoverable: boolean
 }
 
+export type ValueHistory = {
+  id: string
+  propertyId: string
+  date: string
+  value: number
+  note?: string
+}
+
 export type PropertySnapshot = {
   id: string
   propertyId: string
@@ -85,6 +93,7 @@ export type AppData = {
   loanSchedules: LoanScheduleRow[]
   rentEvents: RentEvent[]
   expenseEvents: ExpenseEvent[]
+  valueHistory: ValueHistory[]
   snapshots: PropertySnapshot[]
 }
 

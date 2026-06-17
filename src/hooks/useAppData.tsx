@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { type AppData, type Property, type Loan, type LoanScheduleRow, type RentEvent, type ExpenseEvent } from '../domain/types'
+import { type AppData, type Property, type Loan, type LoanScheduleRow, type RentEvent, type ExpenseEvent, type ValueHistory } from '../domain/types'
 import { type LoanFieldsFromSchedule } from '../domain/csvParser'
 import { normalizeDate } from '../domain/csvParser'
 import { nanoid } from '../utils/nanoid'
@@ -7,24 +7,30 @@ import { nanoid } from '../utils/nanoid'
 const STORAGE_KEY = 'locatif-tracker-data'
 
 const DEFAULT_DATA: AppData = {
+  version: 1,
   properties: [],
   loans: [],
   loanSchedules: [],
   rentEvents: [],
   expenseEvents: [],
+  valueHistory: [],
+  snapshots: [],
 }
 
-/** Migration : zero-pad toutes les dates YYYY-M-D dans loanSchedules */
+/** Migration : zero-pad toutes les dates YYYY-M-D dans loanSchedules + init valueHistory */
 function migrateData(raw: AppData): AppData {
   const schedules = raw.loanSchedules ?? []
   const needsMigration = schedules.some((r) => {
     const parts = r.date.split('-')
     return parts.length === 3 && (parts[1].length < 2 || parts[2].length < 2)
   })
-  if (!needsMigration) return raw
   return {
     ...raw,
-    loanSchedules: schedules.map((r) => ({ ...r, date: normalizeDate(r.date) })),
+    valueHistory: raw.valueHistory ?? [],
+    snapshots: raw.snapshots ?? [],
+    loanSchedules: needsMigration
+      ? schedules.map((r) => ({ ...r, date: normalizeDate(r.date) }))
+      : schedules,
   }
 }
 
@@ -60,6 +66,9 @@ type AppDataContextValue = {
   updateExpenseEvent: (e: ExpenseEvent) => void
   deleteExpenseEvent: (id: string) => void
   addExpenseEvents: (events: ExpenseEvent[]) => void
+  addValueHistory: (v: Omit<ValueHistory, 'id'>) => void
+  updateValueHistory: (v: ValueHistory) => void
+  deleteValueHistory: (id: string) => void
   importData: (data: AppData) => void
   exportData: () => void
 }
@@ -93,6 +102,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       ),
       rentEvents: d.rentEvents.filter((e) => e.propertyId !== id),
       expenseEvents: d.expenseEvents.filter((e) => e.propertyId !== id),
+      valueHistory: d.valueHistory.filter((v) => v.propertyId !== id),
     }))
 
   const addLoan = (l: Omit<Loan, 'id' | 'hasSchedule'>) =>
@@ -152,6 +162,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addExpenseEvents = (events: ExpenseEvent[]) =>
     update((d) => ({ ...d, expenseEvents: [...d.expenseEvents, ...events] }))
 
+  /** ValueHistory — ajoute et met à jour currentValue si c'est le point le plus récent */
+  const addValueHistory = (v: Omit<ValueHistory, 'id'>) =>
+    update((d) => {
+      const entry: ValueHistory = { ...v, id: nanoid() }
+      const newHistory = [...d.valueHistory, entry]
+      const latestForProperty = newHistory
+        .filter((h) => h.propertyId === v.propertyId)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]
+      const properties = d.properties.map((p) =>
+        p.id === v.propertyId
+          ? { ...p, currentValue: latestForProperty.value }
+          : p
+      )
+      return { ...d, valueHistory: newHistory, properties }
+    })
+
+  const updateValueHistory = (v: ValueHistory) =>
+    update((d) => {
+      const newHistory = d.valueHistory.map((x) => (x.id === v.id ? v : x))
+      const latestForProperty = newHistory
+        .filter((h) => h.propertyId === v.propertyId)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]
+      const properties = latestForProperty
+        ? d.properties.map((p) =>
+            p.id === v.propertyId ? { ...p, currentValue: latestForProperty.value } : p
+          )
+        : d.properties
+      return { ...d, valueHistory: newHistory, properties }
+    })
+
+  const deleteValueHistory = (id: string) =>
+    update((d) => {
+      const entry = d.valueHistory.find((v) => v.id === id)
+      const newHistory = d.valueHistory.filter((v) => v.id !== id)
+      if (!entry) return { ...d, valueHistory: newHistory }
+      const remaining = newHistory.filter((h) => h.propertyId === entry.propertyId)
+      const latest = remaining.sort((a, b) => b.date.localeCompare(a.date))[0]
+      const properties = d.properties.map((p) =>
+        p.id === entry.propertyId && latest
+          ? { ...p, currentValue: latest.value }
+          : p
+      )
+      return { ...d, valueHistory: newHistory, properties }
+    })
+
   const importData = (incoming: AppData) =>
     update(() => migrateData(incoming))
 
@@ -171,6 +226,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       addLoan, updateLoan, deleteLoan, setLoanSchedule,
       addRentEvent, updateRentEvent, deleteRentEvent, addRentEvents,
       addExpenseEvent, updateExpenseEvent, deleteExpenseEvent, addExpenseEvents,
+      addValueHistory, updateValueHistory, deleteValueHistory,
       importData, exportData,
     }}>
       {children}
