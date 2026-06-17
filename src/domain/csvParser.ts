@@ -4,12 +4,21 @@ import { nanoid } from '../utils/nanoid'
 
 type RawRow = Record<string, string>
 
+/**
+ * Normalise une date en YYYY-MM-DD strict (zero-pad mois et jour).
+ * Accepte YYYY-M-D, YYYY-MM-D, YYYY-M-DD, YYYY-MM-DD.
+ */
+export function normalizeDate(raw: string): string {
+  const trimmed = raw.trim()
+  const parts = trimmed.split('-')
+  if (parts.length === 3) {
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+  }
+  return trimmed
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILITAIRE : résolution propertyId
-//
-// La colonne propertyId accepte :
-//   - l'ID technique exact   (ex. "prop_x7k2m")
-//   - le nom du bien         (ex. "Ivry", insensible à la casse)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function resolvePropertyId(
@@ -74,7 +83,7 @@ export function parseLoanScheduleCSV(
     const row: LoanScheduleRow = {
       id: nanoid(),
       loanId,
-      date: raw['date']?.trim() ?? '',
+      date: normalizeDate(raw['date'] ?? ''),
       paymentNumber: parseInt(raw['paymentNumber'] ?? '0', 10),
       paymentAmount: parseFloat(raw['paymentAmount'] ?? '0'),
       principalPaid: parseFloat(raw['principalPaid'] ?? '0'),
@@ -130,20 +139,6 @@ export function parseLoanScheduleCSV(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOYERS
-//
-// Format CSV (séparateur "," ou ";" auto-détecté) :
-//
-//   date,propertyId,amount,label,chargesReceived,managementFees
-//
-// • date             YYYY-MM-DD                            obligatoire
-// • propertyId       ID technique OU nom du bien           obligatoire
-// • amount           décimal, peut être négatif (régul)   obligatoire
-// • label            texte libre                           optionnel (vide si absent)
-// • chargesReceived  provisions charges locataire          optionnel
-// • managementFees   frais de gestion (valeur absolue)     optionnel
-//
-// rentHC est déduit automatiquement :
-//   rentHC = amount - (chargesReceived ?? 0) + (managementFees ?? 0)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RENT_REQUIRED = ['date', 'propertyId', 'amount']
@@ -224,16 +219,6 @@ export function parseRentCSV(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DÉPENSES
-//
-// Format CSV :
-//
-//   date,propertyId,category,amount,label
-//
-// • date        YYYY-MM-DD                              obligatoire
-// • propertyId  ID technique OU nom du bien             obligatoire
-// • category    texte libre                             obligatoire
-// • amount      décimal positif                        obligatoire
-// • label       texte libre                            optionnel (vide si absent)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPENSE_REQUIRED = ['date', 'propertyId', 'category', 'amount']

@@ -1,224 +1,161 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  type ReactNode,
-} from 'react'
-import {
-  type AppData,
-  type Property,
-  type Loan,
-  type LoanScheduleRow,
-  type RentEvent,
-  type ExpenseEvent,
-} from '../domain/types'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { type AppData, type Property, type Loan, type LoanScheduleRow, type RentEvent, type ExpenseEvent } from '../domain/types'
 import { type LoanFieldsFromSchedule } from '../domain/csvParser'
+import { normalizeDate } from '../domain/csvParser'
 import { nanoid } from '../utils/nanoid'
 
-const STORAGE_KEY = 'locatifAppData'
+const STORAGE_KEY = 'locatif-tracker-data'
 
-const EMPTY_DATA: AppData = {
-  version: 1,
+const DEFAULT_DATA: AppData = {
   properties: [],
   loans: [],
   loanSchedules: [],
   rentEvents: [],
   expenseEvents: [],
-  snapshots: [],
 }
 
-function loadFromStorage(): AppData {
+/** Migration : zero-pad toutes les dates YYYY-M-D dans loanSchedules */
+function migrateData(raw: AppData): AppData {
+  const schedules = raw.loanSchedules ?? []
+  const needsMigration = schedules.some((r) => {
+    const parts = r.date.split('-')
+    return parts.length === 3 && (parts[1].length < 2 || parts[2].length < 2)
+  })
+  if (!needsMigration) return raw
+  return {
+    ...raw,
+    loanSchedules: schedules.map((r) => ({ ...r, date: normalizeDate(r.date) })),
+  }
+}
+
+function loadData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return EMPTY_DATA
+    if (!raw) return DEFAULT_DATA
     const parsed = JSON.parse(raw) as AppData
-    if (typeof parsed.version !== 'number' || !Array.isArray(parsed.properties)) {
-      return EMPTY_DATA
-    }
-    return { ...EMPTY_DATA, ...parsed }
+    return migrateData(parsed)
   } catch {
-    return EMPTY_DATA
+    return DEFAULT_DATA
   }
+}
+
+function saveData(data: AppData) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 }
 
 type AppDataContextValue = {
   data: AppData
-  addProperty: (p: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addProperty: (p: Omit<Property, 'id'>) => void
   updateProperty: (p: Property) => void
   deleteProperty: (id: string) => void
-  addLoan: (l: Omit<Loan, 'id'>) => void
+  addLoan: (l: Omit<Loan, 'id' | 'hasSchedule'>) => void
   updateLoan: (l: Loan) => void
   deleteLoan: (id: string) => void
-  setLoanSchedule: (
-    loanId: string,
-    rows: LoanScheduleRow[],
-    deduced?: LoanFieldsFromSchedule
-  ) => void
+  setLoanSchedule: (loanId: string, rows: LoanScheduleRow[], deduced: LoanFieldsFromSchedule) => void
   addRentEvent: (e: Omit<RentEvent, 'id'>) => void
+  updateRentEvent: (e: RentEvent) => void
   deleteRentEvent: (id: string) => void
-  bulkAddRentEvents: (events: RentEvent[]) => void
+  addRentEvents: (events: RentEvent[]) => void
   addExpenseEvent: (e: Omit<ExpenseEvent, 'id'>) => void
+  updateExpenseEvent: (e: ExpenseEvent) => void
   deleteExpenseEvent: (id: string) => void
-  bulkAddExpenseEvents: (events: ExpenseEvent[]) => void
-  importData: (d: AppData) => void
+  addExpenseEvents: (events: ExpenseEvent[]) => void
+  importData: (data: AppData) => void
   exportData: () => void
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(loadFromStorage)
+  const [data, setData] = useState<AppData>(loadData)
 
-  const persist = useCallback((next: AppData) => {
-    setData(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  }, [])
+  useEffect(() => {
+    saveData(data)
+  }, [data])
 
-  const addProperty = useCallback(
-    (p: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const now = new Date().toISOString()
-      persist({
-        ...data,
-        properties: [...data.properties, { ...p, id: nanoid(), createdAt: now, updatedAt: now }],
-      })
-    },
-    [data, persist]
-  )
+  function update(fn: (prev: AppData) => AppData) {
+    setData((prev) => fn(prev))
+  }
 
-  const updateProperty = useCallback(
-    (p: Property) => {
-      persist({
-        ...data,
-        properties: data.properties.map((x) =>
-          x.id === p.id ? { ...p, updatedAt: new Date().toISOString() } : x
-        ),
-      })
-    },
-    [data, persist]
-  )
+  const addProperty = (p: Omit<Property, 'id'>) =>
+    update((d) => ({ ...d, properties: [...d.properties, { ...p, id: nanoid() }] }))
 
-  const deleteProperty = useCallback(
-    (id: string) => {
-      persist({
-        ...data,
-        properties: data.properties.filter((p) => p.id !== id),
-        loans: data.loans.filter((l) => l.propertyId !== id),
-        rentEvents: data.rentEvents.filter((r) => r.propertyId !== id),
-        expenseEvents: data.expenseEvents.filter((e) => e.propertyId !== id),
-      })
-    },
-    [data, persist]
-  )
+  const updateProperty = (p: Property) =>
+    update((d) => ({ ...d, properties: d.properties.map((x) => (x.id === p.id ? p : x)) }))
 
-  const addLoan = useCallback(
-    (l: Omit<Loan, 'id'>) => {
-      persist({ ...data, loans: [...data.loans, { ...l, id: nanoid() }] })
-    },
-    [data, persist]
-  )
+  const deleteProperty = (id: string) =>
+    update((d) => ({
+      ...d,
+      properties: d.properties.filter((p) => p.id !== id),
+      loans: d.loans.filter((l) => l.propertyId !== id),
+      loanSchedules: d.loanSchedules.filter(
+        (r) => !d.loans.filter((l) => l.propertyId === id).map((l) => l.id).includes(r.loanId)
+      ),
+      rentEvents: d.rentEvents.filter((e) => e.propertyId !== id),
+      expenseEvents: d.expenseEvents.filter((e) => e.propertyId !== id),
+    }))
 
-  const updateLoan = useCallback(
-    (l: Loan) => {
-      persist({ ...data, loans: data.loans.map((x) => (x.id === l.id ? l : x)) })
-    },
-    [data, persist]
-  )
+  const addLoan = (l: Omit<Loan, 'id' | 'hasSchedule'>) =>
+    update((d) => ({ ...d, loans: [...d.loans, { ...l, id: nanoid(), hasSchedule: false }] }))
 
-  const deleteLoan = useCallback(
-    (id: string) => {
-      persist({
-        ...data,
-        loans: data.loans.filter((l) => l.id !== id),
-        loanSchedules: data.loanSchedules.filter((r) => r.loanId !== id),
-      })
-    },
-    [data, persist]
-  )
+  const updateLoan = (l: Loan) =>
+    update((d) => ({ ...d, loans: d.loans.map((x) => (x.id === l.id ? l : x)) }))
 
-  const setLoanSchedule = useCallback(
-    (loanId: string, rows: LoanScheduleRow[], deduced?: LoanFieldsFromSchedule) => {
-      const updatedLoans = data.loans.map((l) => {
-        if (l.id !== loanId) return l
-        const patch: Partial<Loan> = { hasSchedule: rows.length > 0 }
-        if (deduced) {
-          if (!l.principal || l.principal === 0) patch.principal = deduced.principal
-          if (!l.startDate) patch.startDate = deduced.startDate
-          if (!l.endDate) patch.endDate = deduced.endDate
-          if (!l.rate || l.rate === 0) patch.rate = deduced.rate
-          if ((!l.insuranceRate || l.insuranceRate === 0) && deduced.insuranceRate != null)
-            patch.insuranceRate = deduced.insuranceRate
-          if (!l.monthlyPayment || l.monthlyPayment === 0)
-            patch.monthlyPayment = deduced.monthlyPayment
-        }
-        return { ...l, ...patch }
-      })
-      persist({
-        ...data,
-        loanSchedules: [
-          ...data.loanSchedules.filter((r) => r.loanId !== loanId),
-          ...rows,
-        ],
-        loans: updatedLoans,
-      })
-    },
-    [data, persist]
-  )
+  const deleteLoan = (id: string) =>
+    update((d) => ({
+      ...d,
+      loans: d.loans.filter((l) => l.id !== id),
+      loanSchedules: d.loanSchedules.filter((r) => r.loanId !== id),
+    }))
 
-  const addRentEvent = useCallback(
-    (e: Omit<RentEvent, 'id'>) => {
-      persist({ ...data, rentEvents: [...data.rentEvents, { ...e, id: nanoid() }] })
-    },
-    [data, persist]
-  )
+  const setLoanSchedule = (loanId: string, rows: LoanScheduleRow[], deduced: LoanFieldsFromSchedule) =>
+    update((d) => ({
+      ...d,
+      loanSchedules: [...d.loanSchedules.filter((r) => r.loanId !== loanId), ...rows],
+      loans: d.loans.map((l) =>
+        l.id !== loanId
+          ? l
+          : {
+              ...l,
+              hasSchedule: true,
+              principal: l.principal || deduced.principal,
+              startDate: l.startDate || deduced.startDate,
+              endDate: l.endDate || deduced.endDate,
+              monthlyPayment: l.monthlyPayment || deduced.monthlyPayment,
+              rate: l.rate || deduced.rate,
+              insuranceRate: l.insuranceRate || deduced.insuranceRate,
+            }
+      ),
+    }))
 
-  const deleteRentEvent = useCallback(
-    (id: string) => {
-      persist({ ...data, rentEvents: data.rentEvents.filter((r) => r.id !== id) })
-    },
-    [data, persist]
-  )
+  const addRentEvent = (e: Omit<RentEvent, 'id'>) =>
+    update((d) => ({ ...d, rentEvents: [...d.rentEvents, { ...e, id: nanoid() }] }))
 
-  const bulkAddRentEvents = useCallback(
-    (events: RentEvent[]) => {
-      persist({ ...data, rentEvents: [...data.rentEvents, ...events] })
-    },
-    [data, persist]
-  )
+  const updateRentEvent = (e: RentEvent) =>
+    update((d) => ({ ...d, rentEvents: d.rentEvents.map((x) => (x.id === e.id ? e : x)) }))
 
-  const addExpenseEvent = useCallback(
-    (e: Omit<ExpenseEvent, 'id'>) => {
-      persist({ ...data, expenseEvents: [...data.expenseEvents, { ...e, id: nanoid() }] })
-    },
-    [data, persist]
-  )
+  const deleteRentEvent = (id: string) =>
+    update((d) => ({ ...d, rentEvents: d.rentEvents.filter((e) => e.id !== id) }))
 
-  const deleteExpenseEvent = useCallback(
-    (id: string) => {
-      persist({ ...data, expenseEvents: data.expenseEvents.filter((e) => e.id !== id) })
-    },
-    [data, persist]
-  )
+  const addRentEvents = (events: RentEvent[]) =>
+    update((d) => ({ ...d, rentEvents: [...d.rentEvents, ...events] }))
 
-  const bulkAddExpenseEvents = useCallback(
-    (events: ExpenseEvent[]) => {
-      persist({ ...data, expenseEvents: [...data.expenseEvents, ...events] })
-    },
-    [data, persist]
-  )
+  const addExpenseEvent = (e: Omit<ExpenseEvent, 'id'>) =>
+    update((d) => ({ ...d, expenseEvents: [...d.expenseEvents, { ...e, id: nanoid() }] }))
 
-  const importData = useCallback(
-    (d: AppData) => {
-      if (typeof d.version !== 'number' || !Array.isArray(d.properties)) {
-        alert('Fichier invalide : structure AppData incorrecte')
-        return
-      }
-      persist({ ...EMPTY_DATA, ...d })
-    },
-    [persist]
-  )
+  const updateExpenseEvent = (e: ExpenseEvent) =>
+    update((d) => ({ ...d, expenseEvents: d.expenseEvents.map((x) => (x.id === e.id ? e : x)) }))
 
-  const exportData = useCallback(() => {
+  const deleteExpenseEvent = (id: string) =>
+    update((d) => ({ ...d, expenseEvents: d.expenseEvents.filter((e) => e.id !== id) }))
+
+  const addExpenseEvents = (events: ExpenseEvent[]) =>
+    update((d) => ({ ...d, expenseEvents: [...d.expenseEvents, ...events] }))
+
+  const importData = (incoming: AppData) =>
+    update(() => migrateData(incoming))
+
+  const exportData = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -226,29 +163,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     a.download = `locatif-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
-  }, [data])
+  }
 
   return (
-    <AppDataContext.Provider
-      value={{
-        data,
-        addProperty,
-        updateProperty,
-        deleteProperty,
-        addLoan,
-        updateLoan,
-        deleteLoan,
-        setLoanSchedule,
-        addRentEvent,
-        deleteRentEvent,
-        bulkAddRentEvents,
-        addExpenseEvent,
-        deleteExpenseEvent,
-        bulkAddExpenseEvents,
-        importData,
-        exportData,
-      }}
-    >
+    <AppDataContext.Provider value={{
+      data, addProperty, updateProperty, deleteProperty,
+      addLoan, updateLoan, deleteLoan, setLoanSchedule,
+      addRentEvent, updateRentEvent, deleteRentEvent, addRentEvents,
+      addExpenseEvent, updateExpenseEvent, deleteExpenseEvent, addExpenseEvents,
+      importData, exportData,
+    }}>
       {children}
     </AppDataContext.Provider>
   )
