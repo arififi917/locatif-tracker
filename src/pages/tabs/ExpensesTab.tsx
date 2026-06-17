@@ -10,7 +10,7 @@ import { type ExpenseEvent } from '../../domain/types'
 type Props = { propertyId: string }
 
 export function ExpensesTab({ propertyId }: Props) {
-  const { data, deleteExpenseEvent, bulkAddExpenseEvents } = useAppData()
+  const { data, deleteExpenseEvent, addExpenseEvents } = useAppData()
   const { period } = usePeriodFilter()
   const [showAdd, setShowAdd] = useState(false)
   const [duplicate, setDuplicate] = useState<ExpenseEvent | null>(null)
@@ -23,7 +23,6 @@ export function ExpensesTab({ propertyId }: Props) {
 
   const totalAll = expenses.reduce((s, e) => s + e.amount, 0)
 
-  // Regroupement dynamique par catégorie
   const byCategory = Object.entries(
     expenses
       .filter((e) => e.category !== 'credit')
@@ -47,7 +46,7 @@ export function ExpensesTab({ propertyId }: Props) {
         setCsvErrors(errors)
         return
       }
-      bulkAddExpenseEvents(rows)
+      addExpenseEvents(rows)
       setCsvErrors([])
       alert(`${rows.length} dépense(s) importée(s) avec succès.`)
     }
